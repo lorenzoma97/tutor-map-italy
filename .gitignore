@@ -1,0 +1,8 @@
+# Cache
+highway_cache/
+route_cache.json
+__pycache__/
+
+# Backup
+*_backup.*
+*_restore.*
