@@ -44,6 +44,7 @@ jobs:
             echo "Nessun cambiamento nei dati"
           else
             git commit -m "Aggiornamento automatico dati Tutor $(date +%Y-%m-%d)"
+            git pull --rebase origin master
             git push
           fi
 
