@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: '0 6 * * 1'  # Ogni lunedì alle 6:00 UTC
   workflow_dispatch:  # Permette esecuzione manuale
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   update:
@@ -40,10 +47,18 @@ jobs:
             git push
           fi
 
-      - name: Upload artefatti
-        uses: actions/upload-artifact@v4
+      - name: Deploy su GitHub Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: tutor-data
-          path: |
-            tutor_segments.json
-            tutor.kml
+          path: .
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
