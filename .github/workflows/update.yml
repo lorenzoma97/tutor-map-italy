@@ -2,7 +2,7 @@ name: Aggiorna dati Tutor
 
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Ogni lunedì alle 6:00 UTC
+    - cron: '0 6 * * 1,5'  # Ogni lunedì e venerdì alle 6:00 UTC (8:00 italiane)
   workflow_dispatch:  # Permette esecuzione manuale
   push:
     branches: [master]
