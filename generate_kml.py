@@ -69,6 +69,22 @@ HIGHWAY_COLORS = {
 }
 
 
+# Raggruppamento macro-area per stare entro 10 livelli Google My Maps
+AREA_GROUPS = {
+    'Nord-Ovest': ['A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A26', 'A28'],
+    'Nord-Est': ['A13', 'A23', 'A27', 'A30'],
+    'A1 Milano-Napoli': ['A1'],
+    'A14 Adriatica': ['A14'],
+    'Centro-Sud': ['A11', 'A16', 'A56'],
+}
+
+def get_area(highway):
+    for area, hwys in AREA_GROUPS.items():
+        if highway in hwys:
+            return area
+    return 'Altro'
+
+
 def main():
     print("📄 Generazione file KML...\n")
 
@@ -81,26 +97,26 @@ def main():
         "Dati: Autostrade per l'Italia / Polizia di Stato"
     )
 
-    # Raggruppa per autostrada
-    highways = {}
+    # Raggruppa per macro-area
+    areas = {}
     for seg in segments:
-        hwy = seg["highway"]
-        if hwy not in highways:
-            highways[hwy] = []
-        highways[hwy].append(seg)
+        area = get_area(seg["highway"])
+        areas.setdefault(area, []).append(seg)
 
-    # Ordina autostrade
-    sorted_hwys = sorted(highways.keys(), key=lambda x: int(x.replace('A', '')))
+    area_order = list(AREA_GROUPS.keys()) + ['Altro']
 
-    for hwy in sorted_hwys:
-        segs = highways[hwy]
-        folder = kml.newfolder(name=f"{hwy} ({len(segs)} tratti)")
-
-        color = HIGHWAY_COLORS.get(hwy, 'ff999999')
+    for area in area_order:
+        segs = areas.get(area, [])
+        if not segs:
+            continue
+        folder = kml.newfolder(name=f"{area} ({len(segs)} tratti)")
 
         for seg in segs:
             if not seg.get("start_coords") or not seg.get("end_coords"):
                 continue
+
+            hwy = seg["highway"]
+            color = HIGHWAY_COLORS.get(hwy, 'ff999999')
 
             # Nome del tratto
             km_info = ""
@@ -128,11 +144,11 @@ def main():
 
             description = "\n".join(desc_parts)
 
-            # Crea LineString — usa route_coords (tracciato reale) se disponibile
+            # Crea LineString
             linestring = folder.newlinestring(name=name, description=description)
             if seg.get("route_coords") and len(seg["route_coords"]) > 2:
                 simplified = simplify_coords(seg["route_coords"])
-                linestring.coords = [(c[1], c[0]) for c in simplified]  # KML: lon, lat
+                linestring.coords = [(c[1], c[0]) for c in simplified]
             else:
                 linestring.coords = [
                     (seg["start_coords"][1], seg["start_coords"][0]),
@@ -143,25 +159,10 @@ def main():
             linestring.style.linestyle.color = color
             linestring.style.linestyle.width = 4 if seg.get("type") != "tutor_3.0" else 5
 
-            # Placemark inizio
-            start_pm = folder.newpoint(
-                name=f"📍 {seg['start_name']}" + (f" km {seg['start_km']}" if seg.get('start_km') else ""),
-                coords=[(seg["start_coords"][1], seg["start_coords"][0])]
-            )
-            start_pm.style.iconstyle.scale = 0.6
-            start_pm.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/paddle/grn-circle.png'
-
-            # Placemark fine
-            end_pm = folder.newpoint(
-                name=f"🏁 {seg['end_name']}" + (f" km {seg['end_km']}" if seg.get('end_km') else ""),
-                coords=[(seg["end_coords"][1], seg["end_coords"][0])]
-            )
-            end_pm.style.iconstyle.scale = 0.6
-            end_pm.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/paddle/red-circle.png'
-
     kml.save(str(OUTPUT_FILE))
+    num_areas = len([a for a in area_order if areas.get(a)])
     print(f"✅ KML salvato: {OUTPUT_FILE}")
-    print(f"   {len(segments)} tratti su {len(sorted_hwys)} autostrade")
+    print(f"   {len(segments)} tratti in {num_areas} livelli")
     print(f"\n📱 Per importare in Google Maps app:")
     print(f"   1. Apri Google Maps → Menu → I tuoi luoghi → Mappe")
     print(f"   2. Tocca 'Crea mappa' (oppure usa Google My Maps)")

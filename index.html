@@ -180,10 +180,14 @@
                 </select>
             </div>
             <div class="filter-group">
+                <button id="compassBtn" onclick="toggleCompass()">Attiva bussola</button>
+            </div>
+            <div id="compassStatus" style="display:none;font-size:12px;color:#1a73e8;margin-bottom:12px;font-weight:600;text-align:center;"></div>
+            <div class="filter-group">
                 <button class="secondary" onclick="resetFilters()">Reset filtri</button>
             </div>
             <div class="filter-group">
-                <button onclick="downloadKML()">Scarica KML</button>
+                <button class="secondary" onclick="downloadKML()">Scarica KML</button>
             </div>
             <div class="stats">
                 Tratti visibili: <span id="visibleCount">0</span> / <span id="totalCount">0</span>
@@ -388,6 +392,94 @@
                 legend.innerHTML += `<div class="legend-item"><div class="legend-color" style="background:${color}"></div>${h}</div>`;
             });
             legend.innerHTML += `<div class="legend-item" style="margin-top:4px"><div class="legend-color dashed" style="color:#e53935"></div>Tutor 3.0</div>`;
+        }
+
+        // === Bussola / GPS heading ===
+        let compassActive = false;
+        let watchId = null;
+        let userMarker = null;
+
+        function headingToDirection(heading) {
+            // Converte heading (0-360) in direzione cardinale
+            if (heading >= 315 || heading < 45) return 'Nord';
+            if (heading >= 45 && heading < 135) return 'Est';
+            if (heading >= 135 && heading < 225) return 'Sud';
+            if (heading >= 225 && heading < 315) return 'Ovest';
+            return null;
+        }
+
+        function toggleCompass() {
+            if (compassActive) {
+                stopCompass();
+            } else {
+                startCompass();
+            }
+        }
+
+        function startCompass() {
+            if (!navigator.geolocation) {
+                alert('Geolocalizzazione non supportata dal browser');
+                return;
+            }
+
+            const btn = document.getElementById('compassBtn');
+            const status = document.getElementById('compassStatus');
+            btn.textContent = 'Disattiva bussola';
+            btn.style.background = '#c62828';
+            status.style.display = 'block';
+            status.textContent = 'Acquisizione GPS...';
+            compassActive = true;
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude, heading } = pos.coords;
+
+                    // Aggiorna/crea marker posizione utente
+                    if (userMarker) {
+                        userMarker.setLatLng([latitude, longitude]);
+                    } else {
+                        userMarker = L.circleMarker([latitude, longitude], {
+                            radius: 8, fillColor: '#4285f4', color: '#fff',
+                            weight: 3, fillOpacity: 1
+                        }).addTo(map).bindTooltip('Tu sei qui', { direction: 'top' });
+                        map.setView([latitude, longitude], 11);
+                    }
+
+                    if (heading != null && !isNaN(heading)) {
+                        const dir = headingToDirection(heading);
+                        status.textContent = `Direzione: ${dir} (${Math.round(heading)}°)`;
+                        // Filtra per direzione rilevata
+                        document.getElementById('filterDirection').value = dir;
+                        applyFilters();
+                    } else {
+                        status.textContent = 'GPS attivo — muoviti per rilevare la direzione';
+                    }
+                },
+                (err) => {
+                    const status = document.getElementById('compassStatus');
+                    status.textContent = 'Errore GPS: ' + err.message;
+                },
+                { enableHighAccuracy: true, maximumAge: 5000 }
+            );
+        }
+
+        function stopCompass() {
+            if (watchId != null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                userMarker = null;
+            }
+            compassActive = false;
+            const btn = document.getElementById('compassBtn');
+            const status = document.getElementById('compassStatus');
+            btn.textContent = 'Attiva bussola';
+            btn.style.background = '#1a73e8';
+            status.style.display = 'none';
+            document.getElementById('filterDirection').value = 'all';
+            applyFilters();
         }
 
         function downloadKML() {
