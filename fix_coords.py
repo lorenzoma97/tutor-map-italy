@@ -287,6 +287,11 @@ def main():
             kept += 1
             continue
 
+        # Skip tratti con fix manuale
+        if "Ravenna Nord" in seg.get("start_name", "") and "Imola" in seg.get("end_name", ""):
+            kept += 1
+            continue
+
         subpath = extract_subpath(highway_chains[hwy], start, end)
         if subpath and len(subpath) >= 2:
             seg["route_coords"] = subpath
