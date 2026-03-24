@@ -674,10 +674,10 @@ Lunghezza: 15.0 km</description>
                 </LineString>
             </Placemark>
             <Placemark id="96">
-                <name>A4 San Stino → San DonÃ  (km 388 → 375)</name>
+                <name>A4 San Stino → San DonÃƒÂ  (km 388 → 375)</name>
                 <description>Autostrada: A4
 Da: San Stino
-A: San DonÃ 
+A: San DonÃƒÂ 
 Direzione: Ovest
 Tipo: Standard
 km inizio: 388
@@ -3526,7 +3526,7 @@ km fine: 51.3
 Lunghezza: 4.0 km</description>
                 <styleUrl>#592</styleUrl>
                 <LineString id="590">
-                    <coordinates>11.795,44.338,0.0 11.709,44.36,0.0</coordinates>
+                    <coordinates>11.793,44.346,0.0 11.748,44.367,0.0 11.74,44.38,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="595">
