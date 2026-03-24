@@ -4841,21 +4841,21 @@ km fine: 15
 Lunghezza: 15.0 km</description>
                 <styleUrl>#1198</styleUrl>
                 <LineString id="1196">
-                    <coordinates>8.29024,44.370272,0.0 8.285199,44.372824,0.0 8.299071,44.36694,0.0 8.306139,44.351196,0.0 8.324844,44.342388,0.0 8.321258,44.346282,0.0 8.322951,44.34695,0.0 8.317441,44.346858,0.0 8.311721,44.350033,0.0 8.295193,44.344067,0.0 8.257859,44.346047,0.0 8.229488,44.357683,0.0 8.203751,44.355487,0.0 8.173639,44.357193,0.0 8.156399,44.360385,0.0 8.14729,44.357666,0.0 8.140714,44.362949,0.0 8.12199,44.368629,0.0 8.118636,44.374218,0.0 8.110591,44.377322,0.0 8.105231,44.375319,0.0 8.102365,44.369006,0.0 8.09632,44.366046,0.0 8.093726,44.368382,0.0 8.096034,44.372401,0.0 8.092396,44.37394,0.0 8.039126,44.372692,0.0 8.040944,44.383135,0.0 8.034727,44.387055,0.0</coordinates>
+                    <coordinates>8.2737517,44.3644545,0.0 8.2586023,44.3675268,0.0 8.2441022,44.3644382,0.0 8.2328391,44.3582186,0.0 8.2228915,44.3563385,0.0 8.2073619,44.3595774,0.0 8.1962074,44.3652444,0.0 8.1919545,44.3595128,0.0 8.1739102,44.3575654,0.0 8.1564168,44.3599715,0.0 8.1499944,44.3665567,0.0 8.1202073,44.3823967,0.0 8.1114004,44.3811843,0.0 8.0971263,44.3730174,0.0 8.0421787,44.3737907,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="1201">
                 <name>📍 Pione</name>
                 <styleUrl>#1202</styleUrl>
                 <Point id="1200">
-                    <coordinates>8.29,44.37,0.0</coordinates>
+                    <coordinates>8.2737517,44.3644545,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1206">
                 <name>🏁 Ceva Nord km 15</name>
                 <styleUrl>#1207</styleUrl>
                 <Point id="1205">
-                    <coordinates>8.035,44.387,0.0</coordinates>
+                    <coordinates>8.0421787,44.3737907,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1211">
@@ -4870,21 +4870,21 @@ km fine: 10
 Lunghezza: 10.0 km</description>
                 <styleUrl>#1212</styleUrl>
                 <LineString id="1210">
-                    <coordinates>8.333624,44.337904,0.0 8.348743,44.331614,0.0 8.369699,44.336775,0.0 8.381941,44.332179,0.0 8.402566,44.331922,0.0 8.41397,44.326311,0.0 8.427387,44.32336,0.0 8.444739,44.327349,0.0 8.457112,44.32518,0.0 8.462139,44.321228,0.0 8.467541,44.320338,0.0 8.476105,44.303761,0.0 8.468875,44.302754,0.0 8.463259,44.298699,0.0 8.453877,44.296152,0.0</coordinates>
+                    <coordinates>8.3339491,44.3384131,0.0 8.3642255,44.3450813,0.0 8.3774478,44.3423798,0.0 8.3786947,44.3365879,0.0 8.3667338,44.3317617,0.0 8.3686772,44.3260907,0.0 8.386277,44.3201357,0.0 8.4414132,44.2900993,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="1215">
                 <name>📍 Altare</name>
                 <styleUrl>#1216</styleUrl>
                 <Point id="1214">
-                    <coordinates>8.334,44.338,0.0</coordinates>
+                    <coordinates>8.3339491,44.3384131,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1220">
                 <name>🏁 Zinola Sud km 10</name>
                 <styleUrl>#1221</styleUrl>
                 <Point id="1219">
-                    <coordinates>8.454,44.296,0.0</coordinates>
+                    <coordinates>8.4414132,44.2900993,0.0</coordinates>
                 </Point>
             </Placemark>
         </Folder>
@@ -5581,21 +5581,21 @@ km fine: 36.05
 Lunghezza: 4.5 km</description>
                 <styleUrl>#1384</styleUrl>
                 <LineString id="1382">
-                    <coordinates>8.536682,44.349107,0.0 8.544238,44.343561,0.0 8.542008,44.336056,0.0 8.507112,44.328674,0.0 8.505763,44.331873,0.0 8.502664,44.331014,0.0</coordinates>
+                    <coordinates>8.5416515,44.3467341,0.0 8.5318886,44.3386884,0.0 8.5034785,44.3349665,0.0 8.4995136,44.3318573,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="1387">
                 <name>📍 Celle Ligure km 31.59</name>
                 <styleUrl>#1388</styleUrl>
                 <Point id="1386">
-                    <coordinates>8.536,44.349,0.0</coordinates>
+                    <coordinates>8.5416515,44.3467341,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1392">
                 <name>🏁 Albisola km 36.05</name>
                 <styleUrl>#1393</styleUrl>
                 <Point id="1391">
-                    <coordinates>8.502,44.331,0.0</coordinates>
+                    <coordinates>8.4995136,44.3318573,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1397">
@@ -5610,21 +5610,21 @@ km fine: 33.89
 Lunghezza: 4.8 km</description>
                 <styleUrl>#1398</styleUrl>
                 <LineString id="1396">
-                    <coordinates>8.502664,44.331014,0.0 8.505429,44.332672,0.0 8.507112,44.328674,0.0 8.542008,44.336056,0.0 8.545074,44.342526,0.0 8.542532,44.342167,0.0 8.542451,44.344782,0.0 8.536682,44.349107,0.0</coordinates>
+                    <coordinates>8.4995136,44.3318573,0.0 8.5034785,44.3349665,0.0 8.5318886,44.3386884,0.0 8.5416515,44.3467341,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="1401">
                 <name>📍 Albisola km 38.7</name>
                 <styleUrl>#1402</styleUrl>
                 <Point id="1400">
-                    <coordinates>8.502,44.331,0.0</coordinates>
+                    <coordinates>8.4995136,44.3318573,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="1406">
                 <name>🏁 Celle Ligure km 33.89</name>
                 <styleUrl>#1407</styleUrl>
                 <Point id="1405">
-                    <coordinates>8.536,44.349,0.0</coordinates>
+                    <coordinates>8.5416515,44.3467341,0.0</coordinates>
                 </Point>
             </Placemark>
         </Folder>
@@ -10163,21 +10163,21 @@ km fine: 21.5
 Lunghezza: 11.4 km</description>
                 <styleUrl>#2511</styleUrl>
                 <LineString id="2509">
-                    <coordinates>12.255009,45.635072,0.0 12.251368,45.644547,0.0 12.241519,45.645968,0.0 12.242605,45.653219,0.0 12.248173,45.661361,0.0 12.255659,45.664126,0.0 12.254305,45.669925,0.0 12.250737,45.67033,0.0 12.250453,45.675716,0.0 12.255484,45.686191,0.0 12.249338,45.698065,0.0 12.244257,45.699245,0.0 12.240065,45.704102,0.0</coordinates>
+                    <coordinates>12.3144221,45.6461727,0.0 12.3171437,45.6616773,0.0 12.3052939,45.6747898,0.0 12.2999427,45.6931401,0.0 12.2911042,45.7085996,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="2514">
                 <name>📍 Treviso Sud km 10.1</name>
                 <styleUrl>#2515</styleUrl>
                 <Point id="2513">
-                    <coordinates>12.255,45.635,0.0</coordinates>
+                    <coordinates>12.3144221,45.6461727,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2519">
                 <name>🏁 Treviso Nord km 21.5</name>
                 <styleUrl>#2520</styleUrl>
                 <Point id="2518">
-                    <coordinates>12.24,45.704,0.0</coordinates>
+                    <coordinates>12.2911042,45.7085996,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2524">
@@ -10192,21 +10192,21 @@ km fine: 24
 Lunghezza: 2.5 km</description>
                 <styleUrl>#2525</styleUrl>
                 <LineString id="2523">
-                    <coordinates>12.240065,45.704102,0.0 12.229003,45.710622,0.0 12.22308,45.710899,0.0 12.217682,45.70797,0.0 12.207835,45.719388,0.0 12.197,45.72642,0.0 12.196691,45.738073,0.0 12.200239,45.74648,0.0 12.208352,45.743468,0.0 12.209475,45.736206,0.0 12.213,45.73299,0.0 12.218318,45.735183,0.0</coordinates>
+                    <coordinates>12.2911042,45.7085996,0.0 12.2902296,45.7176284,0.0 12.2858131,45.7249422,0.0 12.2850643,45.7228957,0.0 12.2883179,45.7244725,0.0 12.2843091,45.7280616,0.0 12.2826543,45.7384855,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="2528">
                 <name>📍 Treviso Nord km 21.5</name>
                 <styleUrl>#2529</styleUrl>
                 <Point id="2527">
-                    <coordinates>12.24,45.704,0.0</coordinates>
+                    <coordinates>12.2911042,45.7085996,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2533">
                 <name>🏁 All. SPV A27 km 24</name>
                 <styleUrl>#2534</styleUrl>
                 <Point id="2532">
-                    <coordinates>12.22,45.735,0.0</coordinates>
+                    <coordinates>12.2826543,45.7384855,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2538">
@@ -10221,21 +10221,21 @@ km fine: 62.3
 Lunghezza: 4.1 km</description>
                 <styleUrl>#2539</styleUrl>
                 <LineString id="2537">
-                    <coordinates>12.284046,45.990627,0.0 12.298211,45.996373,0.0 12.302423,45.995202,0.0 12.292979,46.001469,0.0 12.287238,46.009659,0.0 12.291855,46.021224,0.0 12.303769,46.029144,0.0 12.301916,46.03096,0.0 12.30994,46.038209,0.0 12.30667,46.044461,0.0 12.311937,46.052408,0.0</coordinates>
+                    <coordinates>12.2759177,45.9849559,0.0 12.2743059,45.9993211,0.0 12.2771489,46.0098043,0.0 12.2953683,46.0264993,0.0 12.3064943,46.0325562,0.0 12.3172118,46.0507018,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="2542">
                 <name>📍 Vittorio Veneto Nord km 58.2</name>
                 <styleUrl>#2543</styleUrl>
                 <Point id="2541">
-                    <coordinates>12.285,45.99,0.0</coordinates>
+                    <coordinates>12.2759177,45.9849559,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2547">
                 <name>🏁 Fadalto km 62.3</name>
                 <styleUrl>#2548</styleUrl>
                 <Point id="2546">
-                    <coordinates>12.31,46.053,0.0</coordinates>
+                    <coordinates>12.3172118,46.0507018,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2552">
@@ -10250,21 +10250,21 @@ km fine: 10.2
 Lunghezza: 5.8 km</description>
                 <styleUrl>#2553</styleUrl>
                 <LineString id="2551">
-                    <coordinates>12.255009,45.635072,0.0 12.240335,45.636274,0.0 12.233204,45.58096,0.0 12.23697,45.541138,0.0 12.239587,45.536646,0.0 12.250615,45.535614,0.0 12.249971,45.538,0.0</coordinates>
+                    <coordinates>12.3029704,45.6243339,0.0 12.2942153,45.5847382,0.0 12.291222,45.5806834,0.0 12.2887772,45.58089,0.0 12.2919175,45.5792466,0.0 12.2790527,45.5738813,0.0 12.2752629,45.5695125,0.0 12.273371,45.5424499,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="2556">
                 <name>📍 Treviso Sud km 16.025</name>
                 <styleUrl>#2557</styleUrl>
                 <Point id="2555">
-                    <coordinates>12.255,45.635,0.0</coordinates>
+                    <coordinates>12.3029704,45.6243339,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2561">
                 <name>🏁 All. A4 A27 km 10.2</name>
                 <styleUrl>#2562</styleUrl>
                 <Point id="2560">
-                    <coordinates>12.25,45.538,0.0</coordinates>
+                    <coordinates>12.273371,45.5424499,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2566">
@@ -10279,21 +10279,21 @@ km fine: 16.025
 Lunghezza: 8.4 km</description>
                 <styleUrl>#2567</styleUrl>
                 <LineString id="2565">
-                    <coordinates>12.240065,45.704102,0.0 12.245157,45.70502,0.0 12.249207,45.695169,0.0 12.252284,45.693728,0.0 12.232444,45.672625,0.0 12.238682,45.660691,0.0 12.247436,45.660429,0.0 12.241175,45.650044,0.0 12.241377,45.645319,0.0 12.250866,45.644457,0.0 12.255009,45.635072,0.0</coordinates>
+                    <coordinates>12.2911042,45.7085996,0.0 12.2999427,45.6931401,0.0 12.3052939,45.6747898,0.0 12.3171437,45.6616773,0.0 12.3144221,45.6461727,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="2570">
                 <name>📍 Treviso Nord km 24.45</name>
                 <styleUrl>#2571</styleUrl>
                 <Point id="2569">
-                    <coordinates>12.24,45.704,0.0</coordinates>
+                    <coordinates>12.2911042,45.7085996,0.0</coordinates>
                 </Point>
             </Placemark>
             <Placemark id="2575">
                 <name>🏁 Treviso Sud km 16.025</name>
                 <styleUrl>#2576</styleUrl>
                 <Point id="2574">
-                    <coordinates>12.255,45.635,0.0</coordinates>
+                    <coordinates>12.3144221,45.6461727,0.0</coordinates>
                 </Point>
             </Placemark>
         </Folder>
