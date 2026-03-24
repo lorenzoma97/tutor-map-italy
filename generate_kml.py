@@ -4,9 +4,43 @@ Genera file KML dai dati tutor per importazione in Google Maps / Google Earth.
 """
 
 import json
+import math
 from pathlib import Path
 
 import simplekml
+
+
+def simplify_coords(coords, tolerance_km=0.15):
+    """Semplifica una lista di coordinate con algoritmo Douglas-Peucker."""
+    if len(coords) <= 2:
+        return coords
+
+    def point_line_dist(pt, start, end):
+        """Distanza approssimata di un punto da una linea (in gradi, veloce)."""
+        dx = end[1] - start[1]
+        dy = end[0] - start[0]
+        if dx == 0 and dy == 0:
+            return math.sqrt((pt[0]-start[0])**2 + (pt[1]-start[1])**2)
+        t = max(0, min(1, ((pt[1]-start[1])*dx + (pt[0]-start[0])*dy) / (dx*dx + dy*dy)))
+        proj = [start[0] + t*dy, start[1] + t*dx]
+        # Approssimazione: 1 grado ~ 111 km
+        return math.sqrt(((pt[0]-proj[0])*111)**2 + ((pt[1]-proj[1])*111*math.cos(math.radians(pt[0])))**2)
+
+    # Douglas-Peucker
+    max_dist = 0
+    max_idx = 0
+    for i in range(1, len(coords)-1):
+        d = point_line_dist(coords[i], coords[0], coords[-1])
+        if d > max_dist:
+            max_dist = d
+            max_idx = i
+
+    if max_dist > tolerance_km:
+        left = simplify_coords(coords[:max_idx+1], tolerance_km)
+        right = simplify_coords(coords[max_idx:], tolerance_km)
+        return left[:-1] + right
+    else:
+        return [coords[0], coords[-1]]
 
 BASE_DIR = Path(__file__).parent
 INPUT_FILE = BASE_DIR / "tutor_segments.json"
@@ -97,7 +131,8 @@ def main():
             # Crea LineString — usa route_coords (tracciato reale) se disponibile
             linestring = folder.newlinestring(name=name, description=description)
             if seg.get("route_coords") and len(seg["route_coords"]) > 2:
-                linestring.coords = [(c[1], c[0]) for c in seg["route_coords"]]  # KML: lon, lat
+                simplified = simplify_coords(seg["route_coords"])
+                linestring.coords = [(c[1], c[0]) for c in simplified]  # KML: lon, lat
             else:
                 linestring.coords = [
                     (seg["start_coords"][1], seg["start_coords"][0]),
