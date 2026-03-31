@@ -1,0 +1,31 @@
+{
+  "packageId": "io.github.lorenzoma97.tutormap",
+  "host": "lorenzoma97.github.io",
+  "name": "Tutor Autostradali Italia",
+  "launcherName": "Tutor Map",
+  "display": "standalone",
+  "themeColor": "#1a73e8",
+  "themeColorDark": "#1557b0",
+  "navigationColor": "#1a73e8",
+  "navigationColorDark": "#1557b0",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": false,
+  "startUrl": "/tutor-map-italy/",
+  "iconUrl": "https://lorenzoma97.github.io/tutor-map-italy/icons/icon-512x512.png",
+  "maskableIconUrl": "https://lorenzoma97.github.io/tutor-map-italy/icons/maskable-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "tutor-map"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://lorenzoma97.github.io/tutor-map-italy/manifest.json",
+  "fallbackType": "customtabs",
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false
+}

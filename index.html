@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a73e8">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
     <title>Mappa Tutor Autostradali Italia</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -148,6 +151,14 @@
 </head>
 <body>
     <div id="map"></div>
+
+    <div id="alertBanner" style="display:none; position:fixed; top:0; left:0; right:0;
+        z-index:2000; background:linear-gradient(135deg,#ff6f00,#e65100); color:white; padding:14px 16px;
+        font-weight:600; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+        text-align:center; cursor:pointer;" onclick="dismissAlert()">
+        <span id="alertText"></span>
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:20px">&times;</span>
+    </div>
 
     <div class="controls">
         <div class="controls-header" onclick="toggleControls()">
@@ -445,10 +456,12 @@
                         map.setView([latitude, longitude], 11);
                     }
 
+                    // Check prossimità Tutor
+                    checkProximity(latitude, longitude);
+
                     if (heading != null && !isNaN(heading)) {
                         const dir = headingToDirection(heading);
                         status.textContent = `Direzione: ${dir} (${Math.round(heading)}°)`;
-                        // Filtra per direzione rilevata
                         document.getElementById('filterDirection').value = dir;
                         applyFilters();
                     } else {
@@ -473,6 +486,8 @@
                 userMarker = null;
             }
             compassActive = false;
+            alertedSegments.clear();
+            dismissAlert();
             const btn = document.getElementById('compassBtn');
             const status = document.getElementById('compassStatus');
             btn.textContent = 'Attiva bussola';
@@ -482,14 +497,65 @@
             applyFilters();
         }
 
+        // === Alert di prossimità ===
+        const ALERT_RADIUS_KM = 2;
+        let alertedSegments = new Set();
+        let alertTimeout = null;
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function checkProximity(lat, lng) {
+            for (const seg of allSegments) {
+                if (!seg.start_coords) continue;
+                const dist = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
+                const segId = `${seg.highway}-${seg.start_name}-${seg.direction}`;
+                if (dist < ALERT_RADIUS_KM && !alertedSegments.has(segId)) {
+                    alertedSegments.add(segId);
+                    showProximityAlert(seg, dist);
+                    break;
+                }
+            }
+        }
+
+        function showProximityAlert(seg, dist) {
+            const banner = document.getElementById('alertBanner');
+            const text = document.getElementById('alertText');
+            const tipo = seg.type === 'tutor_3.0' ? ' [3.0]' : '';
+            const distStr = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
+            text.textContent = `TUTOR ${seg.highway}${tipo} tra ${distStr} — ${seg.start_name} > ${seg.end_name}`;
+            banner.style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            clearTimeout(alertTimeout);
+            alertTimeout = setTimeout(dismissAlert, 10000);
+        }
+
+        function dismissAlert() {
+            document.getElementById('alertBanner').style.display = 'none';
+            clearTimeout(alertTimeout);
+        }
+
         function downloadKML() {
-            // Verifica se tutor.kml esiste, altrimenti suggerisci di generarlo
             const link = document.createElement('a');
             link.href = 'tutor.kml';
             link.download = 'tutor.kml';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('SW registered, scope:', reg.scope))
+                .catch(err => console.error('SW registration failed:', err));
         }
     </script>
 </body>
