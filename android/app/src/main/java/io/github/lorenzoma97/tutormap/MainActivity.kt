@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
+import android.view.View
 import android.webkit.*
 import android.widget.TextView
 import android.widget.Toast
@@ -18,7 +21,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.material.button.MaterialButton
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var webView: WebView
-    private lateinit var btnMonitor: MaterialButton
+    private lateinit var fab: ExtendedFloatingActionButton
     private lateinit var statusText: TextView
     private var monitoring = false
 
@@ -38,7 +41,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
-        btnMonitor = findViewById(R.id.btnMonitor)
+        fab = findViewById(R.id.fabMonitor)
         statusText = findViewById(R.id.statusText)
 
         setupWebView()
@@ -47,12 +50,10 @@ class MainActivity : AppCompatActivity() {
         // Ripristina stato monitoraggio (sopravvive a rotazione)
         if (LocationService.isRunning) {
             monitoring = true
-            btnMonitor.text = "STOP MONITORAGGIO"
-            btnMonitor.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFF6D00.toInt())
-            statusText.text = "GPS attivo"
+            updateFabState()
         }
 
-        btnMonitor.setOnClickListener {
+        fab.setOnClickListener {
             if (monitoring) {
                 stopMonitoring()
             } else {
@@ -64,11 +65,34 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // Controlla Google Play Services (necessario per FusedLocationProvider)
+        // Prefetch dati segmenti Tutor
+        prefetchSegments()
+
+        // Controlla Google Play Services
         checkPlayServices()
 
         // Controlla ottimizzazione batteria al primo avvio
         checkBatteryOptimization()
+    }
+
+    private fun updateFabState() {
+        if (monitoring) {
+            fab.text = "STOP"
+            fab.setIconResource(android.R.drawable.ic_media_pause)
+            fab.backgroundTintList = ColorStateList.valueOf(0xFFFF6D00.toInt())
+            fab.setTextColor(0xFFFFFFFF.toInt())
+            fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+            statusText.text = "GPS attivo"
+            statusText.visibility = View.VISIBLE
+        } else {
+            fab.text = "AVVIA"
+            fab.setIconResource(android.R.drawable.ic_media_play)
+            fab.backgroundTintList = ColorStateList.valueOf(0xFF34a853.toInt())
+            fab.setTextColor(0xFFFFFFFF.toInt())
+            fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+            statusText.text = ""
+            statusText.visibility = View.GONE
+        }
     }
 
     private fun setupWebView() {
@@ -173,6 +197,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun prefetchSegments() {
+        Thread {
+            try {
+                val url = java.net.URL(LocationService.DATA_URL)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                val json = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+
+                getSharedPreferences("tutor_cache", MODE_PRIVATE).edit()
+                    .putString("segments_json", json)
+                    .putLong("cache_time", System.currentTimeMillis())
+                    .apply()
+                Log.i("TutorMap", "Prefetch segmenti completato")
+            } catch (e: Exception) {
+                Log.w("TutorMap", "Prefetch segmenti fallito (verrà riprovato al monitoraggio)", e)
+            }
+        }.start()
+    }
+
     private fun checkPlayServices() {
         val gapi = GoogleApiAvailability.getInstance()
         val result = gapi.isGooglePlayServicesAvailable(this)
@@ -219,9 +264,7 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, LocationService::class.java)
         ContextCompat.startForegroundService(this, intent)
         monitoring = true
-        btnMonitor.text = "STOP MONITORAGGIO"
-        btnMonitor.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFF6D00.toInt())
-        statusText.text = "GPS attivo"
+        updateFabState()
     }
 
     private fun stopMonitoring() {
@@ -230,9 +273,7 @@ class MainActivity : AppCompatActivity() {
         }
         startService(intent)
         monitoring = false
-        btnMonitor.text = "AVVIA MONITORAGGIO"
-        btnMonitor.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFFFFF.toInt())
-        statusText.text = ""
+        updateFabState()
     }
 
     @Deprecated("Deprecated in Java")
