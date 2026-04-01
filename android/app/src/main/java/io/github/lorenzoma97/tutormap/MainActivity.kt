@@ -42,6 +42,14 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         webView.loadUrl(MAP_URL)
 
+        // Ripristina stato monitoraggio (sopravvive a rotazione)
+        if (LocationService.isRunning) {
+            monitoring = true
+            btnMonitor.text = "STOP MONITORAGGIO"
+            btnMonitor.setBackgroundColor(0xFFFF6D00.toInt())
+            statusText.text = "GPS attivo"
+        }
+
         btnMonitor.setOnClickListener {
             if (monitoring) {
                 stopMonitoring()
@@ -75,7 +83,9 @@ class MainActivity : AppCompatActivity() {
                 return if (url.contains("lorenzoma97.github.io")) {
                     false
                 } else {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    } catch (_: Exception) {}
                     true
                 }
             }

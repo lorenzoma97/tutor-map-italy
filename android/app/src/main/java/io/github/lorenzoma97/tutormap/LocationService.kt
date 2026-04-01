@@ -48,6 +48,7 @@ class LocationService : Service() {
         const val POSITION_BUFFER_SIZE = 10
         const val MIN_TRAVEL_DISTANCE_M = 50.0
         const val MAX_BEARING_DIFF = 60.0
+        @Volatile var isRunning = false
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -55,7 +56,7 @@ class LocationService : Service() {
     private lateinit var audioManager: AudioManager
     private var tts: TextToSpeech? = null
     private var ttsReady = false
-    private var segments: List<TutorSegment> = emptyList()
+    @Volatile private var segments: List<TutorSegment> = emptyList()
     private val alertedSegments = mutableMapOf<String, Long>()
     private val activeSegments = mutableMapOf<String, ActiveSegmentInfo>()
     private val handler = Handler(Looper.getMainLooper())
@@ -137,6 +138,9 @@ class LocationService : Service() {
         if (!ttsReady) return
         if (!isSettingEnabled("sound", true)) return
 
+        // Rilascia focus precedente se ancora attivo
+        audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+
         // Audio focus: chiedi transient duck (Maps abbassa il volume, non si ferma)
         val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(
@@ -178,6 +182,7 @@ class LocationService : Service() {
 
         val notification = buildPersistentNotification("Monitoraggio Tutor attivo")
         startForeground(NOTIFICATION_PERSISTENT_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        isRunning = true
         startLocationUpdates()
         showOverlay()
         return START_STICKY
@@ -186,6 +191,7 @@ class LocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        isRunning = false
         super.onDestroy()
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -533,15 +539,14 @@ class LocationService : Service() {
             if (activeInfo != null) {
                 val avg = activeInfo.avgSpeedKmh().toInt()
                 val limit = activeInfo.seg.speedLimit
-                val distStart = haversineKm(lat, lng, activeInfo.seg.startLat, activeInfo.seg.startLng)
                 val distEnd = haversineKm(lat, lng, activeInfo.seg.endLat, activeInfo.seg.endLng)
                 val segLen = haversineKm(activeInfo.seg.startLat, activeInfo.seg.startLng,
                     activeInfo.seg.endLat, activeInfo.seg.endLng)
                 val distStr = if (distEnd < 1) "${(distEnd * 1000).toInt()}m"
                               else "${String.format("%.1f", distEnd)}km"
 
-                // Progresso nel tratto: quanto sei avanti rispetto alla lunghezza totale
-                val progress = if (segLen > 0) (distStart / segLen).coerceIn(0.0, 1.0) else 0.0
+                // Progresso nel tratto: 100% quando arrivi alla fine
+                val progress = if (segLen > 0) (1.0 - distEnd / segLen).coerceIn(0.0, 1.0) else 0.0
 
                 // Colore in base a media vs limite
                 val color = when {
@@ -723,14 +728,27 @@ class LocationService : Service() {
     private fun openMapsPin(seg: TutorSegment) {
         if (!isSettingEnabled("maps_pin", true)) return
         try {
-            val uri = Uri.parse("geo:${seg.endLat},${seg.endLng}?q=${seg.endLat},${seg.endLng}(Fine+Tutor+${seg.highway})")
-            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            // Usa notifica con azione per aprire Maps (funziona anche da background su Android 10+)
+            val geoUri = Uri.parse("geo:${seg.endLat},${seg.endLng}?q=${seg.endLat},${seg.endLng}(Fine+Tutor+${seg.highway})")
+            val mapsIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
                 setPackage("com.google.android.apps.maps")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            startActivity(intent)
+            val mapsPending = PendingIntent.getActivity(this, 2, mapsIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+            val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
+                .setContentTitle("Fine Tutor ${seg.highway}")
+                .setContentText("Tocca per vedere su Maps: ${seg.endName}")
+                .setSmallIcon(android.R.drawable.ic_dialog_map)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(mapsPending)
+                .build()
+
+            val mgr = getSystemService(NotificationManager::class.java)
+            mgr.notify(NOTIFICATION_ALERT_ID + 1, notification)
         } catch (e: Exception) {
-            Log.w(TAG, "Impossibile aprire Maps", e)
+            Log.w(TAG, "Impossibile creare notifica Maps", e)
         }
     }
 

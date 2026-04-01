@@ -44,7 +44,7 @@
 
         <receiver
             android:name=".BluetoothReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
             </intent-filter>

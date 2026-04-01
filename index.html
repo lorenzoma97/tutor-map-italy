@@ -843,7 +843,8 @@
         // ============ Proximity alerts ============
         const ALERT_RADIUS_KM = 2;
         const END_RADIUS_KM = 0.8;
-        let alertedSegments = new Set();
+        const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minuti cooldown per tratto
+        let alertedSegments = new Map(); // segId -> timestamp (con scadenza)
         let activeSegments = new Map();
         let alertTimeout = null;
 
@@ -858,6 +859,10 @@
         }
 
         function checkProximity(lat, lng) {
+            if (allSegments.length === 0) return; // dati non ancora caricati
+
+            const now = Date.now();
+
             // 1. Fine tratti attivi
             for (const [segId, info] of activeSegments) {
                 if (!info.seg.end_coords) continue;
@@ -874,10 +879,12 @@
             for (const seg of allSegments) {
                 if (!seg.start_coords) continue;
                 const dist = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
-                const segId = `${seg.highway}-${seg.start_name}-${seg.direction}`;
-                if (dist < ALERT_RADIUS_KM && !alertedSegments.has(segId) && isMatchingDirection(seg)) {
-                    alertedSegments.add(segId);
-                    activeSegments.set(segId, { seg, enteredAt: Date.now() });
+                const segId = `${seg.highway}-${seg.start_name}-${seg.end_name}-${seg.direction}`;
+                const lastAlert = alertedSegments.get(segId);
+                const cooldownOk = !lastAlert || (now - lastAlert > ALERT_COOLDOWN_MS);
+                if (dist < ALERT_RADIUS_KM && cooldownOk && isMatchingDirection(seg)) {
+                    alertedSegments.set(segId, now);
+                    activeSegments.set(segId, { seg, enteredAt: now });
                     showProximityAlert(seg, dist);
                     break;
                 }
