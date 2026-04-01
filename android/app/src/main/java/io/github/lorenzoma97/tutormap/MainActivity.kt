@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         if (LocationService.isRunning) {
             monitoring = true
             btnMonitor.text = "STOP MONITORAGGIO"
-            btnMonitor.setBackgroundColor(0xFFFF6D00.toInt())
+            btnMonitor.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFF6D00.toInt())
             statusText.text = "GPS attivo"
         }
 
@@ -199,7 +199,7 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.startForegroundService(this, intent)
         monitoring = true
         btnMonitor.text = "STOP MONITORAGGIO"
-        btnMonitor.setBackgroundColor(0xFFFF6D00.toInt())
+        btnMonitor.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFF6D00.toInt())
         statusText.text = "GPS attivo"
     }
 

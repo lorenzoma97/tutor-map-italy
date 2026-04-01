@@ -182,7 +182,11 @@ class LocationService : Service() {
         }
 
         val notification = buildPersistentNotification("Monitoraggio Tutor attivo")
-        startForeground(NOTIFICATION_PERSISTENT_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            startForeground(NOTIFICATION_PERSISTENT_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        } else {
+            startForeground(NOTIFICATION_PERSISTENT_ID, notification)
+        }
         isRunning = true
         startLocationUpdates()
         showOverlay()
