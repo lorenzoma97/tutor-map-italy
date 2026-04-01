@@ -245,11 +245,11 @@
             maxZoom: 18
         }).addTo(map);
 
-        // Carica metadata + dati
-        let lastUpdate = null;
+        // Carica metadata (fonti per-segmento)
+        let metadata = null;
         fetch('metadata.json')
             .then(r => r.ok ? r.json() : null)
-            .then(meta => { if (meta) lastUpdate = meta.last_update; })
+            .then(meta => { metadata = meta; })
             .catch(() => {});
 
         fetch('tutor_segments.json')
@@ -315,9 +315,16 @@
                     ? '<span class="badge tutor30">TUTOR 3.0</span>'
                     : '<span class="badge standard">Standard</span>';
 
-                const updateInfo = lastUpdate
-                    ? `<div class="info-row" style="margin-top:4px;border-top:1px solid #e0e0e0;padding-top:4px"><span class="info-label">Aggiornato</span><span class="info-value" style="font-size:11px;color:#888">${new Date(lastUpdate).toLocaleDateString('it-IT')}</span></div>`
-                    : '';
+                // Cerca info fonte per questo segmento
+                let sourceInfo = '';
+                if (metadata && metadata.segment_sources) {
+                    const segKey = `${seg.highway}|${seg.start_name}|${seg.end_name}`;
+                    const src = metadata.segment_sources[segKey];
+                    if (src) {
+                        const dateStr = src.date || '—';
+                        sourceInfo = `<div class="info-row" style="margin-top:4px;border-top:1px solid #e0e0e0;padding-top:4px"><span class="info-label">Fonte</span><span class="info-value" style="font-size:11px;color:#888">${src.source}<br>${dateStr}</span></div>`;
+                    }
+                }
 
                 line.bindPopup(`
                     <div class="popup-content">
@@ -326,7 +333,7 @@
                         <div class="info-row"><span class="info-label">A</span><span class="info-value">${seg.end_name}</span></div>
                         ${kmInfo}
                         <div class="info-row"><span class="info-label">Tipo</span>${typeLabel}</div>
-                        ${updateInfo}
+                        ${sourceInfo}
                     </div>
                 `, { maxWidth: 280 });
 

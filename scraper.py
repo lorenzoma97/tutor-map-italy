@@ -101,6 +101,57 @@ def find_coords(caselli_db, highway_code, casello_name):
     return None
 
 
+def extract_page_date(resp, soup):
+    """Estrae la data di aggiornamento di una pagina web."""
+    # 1. Header Last-Modified
+    last_mod = resp.headers.get("Last-Modified")
+    if last_mod:
+        try:
+            from email.utils import parsedate_to_datetime
+            dt = parsedate_to_datetime(last_mod)
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    # 2. Meta tag article:modified_time o dateModified
+    for meta in soup.find_all("meta"):
+        prop = meta.get("property", "") or meta.get("name", "")
+        if prop in ("article:modified_time", "dateModified", "last-modified"):
+            content = meta.get("content", "")
+            if content:
+                match = re.search(r'(\d{4}-\d{2}-\d{2})', content)
+                if match:
+                    return match.group(1)
+
+    # 3. Schema.org dateModified in JSON-LD
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            ld = json.loads(script.string)
+            for key in ("dateModified", "datePublished"):
+                if key in ld:
+                    match = re.search(r'(\d{4}-\d{2}-\d{2})', str(ld[key]))
+                    if match:
+                        return match.group(1)
+        except Exception:
+            pass
+
+    # 4. Cerca pattern data nel testo visibile (es. "aggiornato al 15 marzo 2026")
+    text = soup.get_text()
+    # Pattern italiano: "15 marzo 2026" o "marzo 2025"
+    mesi = {"gennaio": "01", "febbraio": "02", "marzo": "03", "aprile": "04",
+            "maggio": "05", "giugno": "06", "luglio": "07", "agosto": "08",
+            "settembre": "09", "ottobre": "10", "novembre": "11", "dicembre": "12"}
+    for pattern in [r'aggiornato?\s+(?:al?\s+)?(\d{1,2})\s+(\w+)\s+(\d{4})',
+                    r'aggiornamento\s*:?\s*(\d{1,2})\s+(\w+)\s+(\d{4})']:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            day, month_name, year = m.group(1), m.group(2).lower(), m.group(3)
+            if month_name in mesi:
+                return f"{year}-{mesi[month_name]}-{int(day):02d}"
+
+    return None
+
+
 def scrape_autostrade():
     """Scrape tabella km da Autostrade per l'Italia."""
     print("📡 Scaricamento dati da Autostrade per l'Italia...")
@@ -109,7 +160,7 @@ def scrape_autostrade():
         resp.raise_for_status()
     except requests.RequestException as e:
         print(f"⚠️  Errore Autostrade.it: {e}")
-        return []
+        return [], None
 
     soup = BeautifulSoup(resp.text, "html.parser")
     segments = []
@@ -144,8 +195,9 @@ def scrape_autostrade():
                 if segment:
                     segments.append(segment)
 
-    print(f"   Estratti {len(segments)} tratti da Autostrade.it")
-    return segments
+    page_date = extract_page_date(resp, soup)
+    print(f"   Estratti {len(segments)} tratti da Autostrade.it (data pagina: {page_date or '?'})")
+    return segments, page_date
 
 
 def try_parse_row(texts, current_highway):
@@ -211,9 +263,10 @@ def scrape_sicurauto():
         resp.raise_for_status()
     except requests.RequestException as e:
         print(f"⚠️  Errore Sicurauto.it: {e}")
-        return [], set()
+        return [], set(), None
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    page_date = extract_page_date(resp, soup)
     segments = []
     tutor30_segments = set()
 
@@ -265,9 +318,9 @@ def scrape_sicurauto():
                         key = f"{highway}|{seg['start_name']}|{seg['end_name']}"
                         tutor30_segments.add(key)
 
-    print(f"   Estratti {len(segments)} tratti da Sicurauto.it")
+    print(f"   Estratti {len(segments)} tratti da Sicurauto.it (data pagina: {page_date or '?'})")
     print(f"   Identificati {len(tutor30_segments)} tratti Tutor 3.0")
-    return segments, tutor30_segments
+    return segments, tutor30_segments, page_date
 
 
 def use_hardcoded_data():
@@ -761,8 +814,23 @@ def scrape_polizia_pdf():
         return None, pdf_date
 
 
-def validate_sources(hardcoded_count):
-    """Valida i dati incrociando le fonti, logga risultati, genera alert."""
+def make_seg_key(highway, start_name, end_name):
+    """Crea chiave normalizzata per matching tra fonti."""
+    return f"{highway}|{normalize_name(start_name).lower()}|{normalize_name(end_name).lower()}"
+
+
+def build_source_lookup(segments):
+    """Costruisce un set di chiavi dai segmenti scrappati."""
+    keys = set()
+    for seg in segments:
+        key = make_seg_key(seg.get("highway", ""), seg.get("start_name", ""), seg.get("end_name", ""))
+        keys.add(key)
+    return keys
+
+
+def validate_sources(hardcoded_count, segments):
+    """Valida i dati incrociando le fonti, logga risultati, genera alert.
+    Restituisce i risultati con il mapping per-segmento delle fonti."""
     print("\n" + "=" * 50)
     print("  VALIDAZIONE FONTI")
     print("=" * 50 + "\n")
@@ -774,22 +842,67 @@ def validate_sources(hardcoded_count):
     }
 
     # 1. Scrape Autostrade.it
-    autostrade_segs = scrape_autostrade()
+    autostrade_segs, autostrade_date = scrape_autostrade()
     results["autostrade_count"] = len(autostrade_segs)
+    results["autostrade_date"] = autostrade_date
 
     # 2. Scrape Sicurauto.it
-    sicurauto_segs, tutor30 = scrape_sicurauto()
+    sicurauto_segs, tutor30, sicurauto_date = scrape_sicurauto()
     results["sicurauto_count"] = len(sicurauto_segs)
     results["tutor30_count"] = len(tutor30)
+    results["sicurauto_date"] = sicurauto_date
 
     # 3. PDF Polizia di Stato
     pdf_count, pdf_date = scrape_polizia_pdf()
     results["polizia_pdf_count"] = pdf_count
     results["polizia_pdf_date"] = pdf_date
 
+    # --- Matching per-segmento: quale fonte conferma ogni tratto? ---
+    autostrade_keys = build_source_lookup(autostrade_segs)
+    sicurauto_keys = build_source_lookup(sicurauto_segs)
+
+    # Per ogni segmento, trova la fonte piu' recente che lo conferma
+    segment_sources = {}
+    for seg in segments:
+        key = make_seg_key(seg.get("highway", ""), seg.get("start_name", ""), seg.get("end_name", ""))
+        sources_found = []
+
+        if key in autostrade_keys and autostrade_date:
+            sources_found.append(("Autostrade per l'Italia", autostrade_date))
+        if key in sicurauto_keys and sicurauto_date:
+            sources_found.append(("Sicurauto.it", sicurauto_date))
+
+        # Scegli la fonte con data piu' recente
+        if sources_found:
+            sources_found.sort(key=lambda x: x[1], reverse=True)
+            best_source, best_date = sources_found[0]
+        else:
+            # Non trovato in nessuna fonte live, usa PDF date o "dati pre-caricati"
+            if pdf_date:
+                best_source = "Polizia di Stato (PDF)"
+                best_date = pdf_date
+            else:
+                best_source = "dati pre-caricati"
+                best_date = None
+
+        display_key = f"{seg.get('highway', '')}|{seg.get('start_name', '')}|{seg.get('end_name', '')}"
+        segment_sources[display_key] = {
+            "source": best_source,
+            "date": best_date
+        }
+
+    results["segment_sources"] = segment_sources
+
+    matched_auto = sum(1 for k in segment_sources.values() if "Autostrade" in k["source"])
+    matched_sicura = sum(1 for k in segment_sources.values() if "Sicurauto" in k["source"])
+    matched_preloaded = sum(1 for k in segment_sources.values() if "pre-caricati" in k["source"])
+    print(f"\n📊 Matching per-segmento:")
+    print(f"   Confermati da Autostrade.it: {matched_auto}")
+    print(f"   Confermati da Sicurauto.it:  {matched_sicura}")
+    print(f"   Solo dati pre-caricati:      {matched_preloaded}")
+
     # --- Alert logic ---
 
-    # Autostrade.it irraggiungibile o HTML cambiato
     if len(autostrade_segs) == 0:
         results["alerts"].append({
             "level": "warning",
@@ -803,7 +916,6 @@ def validate_sources(hardcoded_count):
             "message": f"Discrepanza: {len(autostrade_segs)} tratti online vs {hardcoded_count} hardcoded"
         })
 
-    # Sicurauto.it irraggiungibile o nuovi tratti
     if len(sicurauto_segs) == 0:
         results["alerts"].append({
             "level": "warning",
@@ -817,7 +929,6 @@ def validate_sources(hardcoded_count):
             "message": f"Possibili nuovi tratti: {len(sicurauto_segs)} online vs {hardcoded_count} hardcoded"
         })
 
-    # PDF cross-check
     if pdf_count is not None and abs(pdf_count - hardcoded_count) > 15:
         results["alerts"].append({
             "level": "info",
@@ -846,9 +957,10 @@ def validate_sources(hardcoded_count):
                     "message": f"Calo improvviso: {prev_val} -> {curr_val} (-{drop_pct:.0f}%)"
                 })
 
-    # Salva log (persiste tra i run per confronto)
+    # Salva log (persiste tra i run per confronto) — senza segment_sources (troppo grande)
+    log_data = {k: v for k, v in results.items() if k != "segment_sources"}
     with open(LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        json.dump(log_data, f, indent=2, ensure_ascii=False)
 
     # Salva alert separatamente per il workflow
     if results["alerts"]:
@@ -865,16 +977,17 @@ def validate_sources(hardcoded_count):
     # Riepilogo
     print(f"\n--- Riepilogo fonti ---")
     print(f"   Dati in uso (hardcoded): {hardcoded_count} tratti")
-    print(f"   Autostrade.it (scrape):  {results['autostrade_count']} tratti")
-    print(f"   Sicurauto.it (scrape):   {results['sicurauto_count']} tratti ({results['tutor30_count']} Tutor 3.0)")
+    print(f"   Autostrade.it (scrape):  {results['autostrade_count']} tratti (pagina: {autostrade_date or '?'})")
+    print(f"   Sicurauto.it (scrape):   {results['sicurauto_count']} tratti (pagina: {sicurauto_date or '?'})")
     pdf_str = f"~{pdf_count}" if pdf_count else "N/A"
-    print(f"   Polizia di Stato (PDF):  {pdf_str} tratti ({pdf_date or 'data sconosciuta'})")
+    print(f"   Polizia di Stato (PDF):  {pdf_str} tratti ({pdf_date or '?'})")
 
     return results
 
 
 def save_metadata(segment_count, validation_results=None):
-    """Salva metadata.json con info aggiornamento per la web app."""
+    """Salva metadata.json con info aggiornamento per la web app,
+    incluso il mapping per-segmento delle fonti."""
     meta = {
         "last_update": datetime.now().strftime("%Y-%m-%d"),
         "segment_count": segment_count,
@@ -882,26 +995,26 @@ def save_metadata(segment_count, validation_results=None):
             "primary": {
                 "name": "Autostrade per l'Italia",
                 "url": AUTOSTRADE_URL,
-                "scraped_count": None
+                "date": None
             },
             "secondary": {
                 "name": "Sicurauto.it",
                 "url": SICURAUTO_URL,
-                "scraped_count": None
+                "date": None
             },
             "cross_check": {
                 "name": "Polizia di Stato (PDF)",
-                "scraped_count": None,
-                "pdf_date": None
+                "date": None
             }
-        }
+        },
+        "segment_sources": {}
     }
 
     if validation_results:
-        meta["sources"]["primary"]["scraped_count"] = validation_results.get("autostrade_count")
-        meta["sources"]["secondary"]["scraped_count"] = validation_results.get("sicurauto_count")
-        meta["sources"]["cross_check"]["scraped_count"] = validation_results.get("polizia_pdf_count")
-        meta["sources"]["cross_check"]["pdf_date"] = validation_results.get("polizia_pdf_date")
+        meta["sources"]["primary"]["date"] = validation_results.get("autostrade_date")
+        meta["sources"]["secondary"]["date"] = validation_results.get("sicurauto_date")
+        meta["sources"]["cross_check"]["date"] = validation_results.get("polizia_pdf_date")
+        meta["segment_sources"] = validation_results.get("segment_sources", {})
         if validation_results.get("alerts"):
             meta["has_alerts"] = True
             meta["alert_count"] = len(validation_results["alerts"])
@@ -943,7 +1056,7 @@ def main():
     print(f"\n💾 Salvato in {OUTPUT_FILE}")
 
     # Validazione incrociata fonti + logging
-    validation = validate_sources(len(valid))
+    validation = validate_sources(len(valid), valid)
 
     # Salva metadata per la web app
     save_metadata(len(valid), validation)
