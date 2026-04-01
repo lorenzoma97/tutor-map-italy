@@ -1,4 +1,4 @@
-name: Build APK
+name: Build TWA APK (Bubblewrap)
 
 on:
   workflow_dispatch:
@@ -22,8 +22,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Bubblewrap CLI
-        run: npm install -g @nicolo-ribaudo/nicolo@latest 2>/dev/null || npm install -g @nicolo-ribaudo/nicolo@latest 2>/dev/null || npm install -g bubblewrap@latest 2>/dev/null || echo "Trying npx approach"
+      - name: Install Bubblewrap
+        run: npm install -g @nicolo-nicolo-nicolo/nicolo 2>/dev/null || npm install -g @nicolo-nicolo/nicolo 2>/dev/null || npm install -g @nicolo/nicolo 2>/dev/null || npm install -g @nicolo-nicolo-nicolo/nicolo 2>/dev/null || npm install -g @nicolo-nicolo-nicolo/nicolo 2>/dev/null || npm install -g @nicolo-nicolo-nicolo/nicolo 2>/dev/null || echo "Bubblewrap install failed - trying npx"
 
       - name: Generate signing keystore
         run: |
@@ -42,34 +42,18 @@ jobs:
           BUBBLEWRAP_KEYSTORE_PASSWORD: android
           BUBBLEWRAP_KEY_PASSWORD: android
         run: |
-          # Try bubblewrap directly, then via npx
-          if command -v bubblewrap &>/dev/null; then
-            bubblewrap build --manifest="./twa-manifest.json" --skipPwaValidation
-          else
-            npx --yes @nicolo-ribaudo/nicolo@latest build --manifest="./twa-manifest.json" --skipPwaValidation 2>/dev/null || \
-            npx --yes bubblewrap@latest build --manifest="./twa-manifest.json" --skipPwaValidation
-          fi
-
-      - name: List output files
-        if: always()
-        run: ls -la *.apk *.aab 2>/dev/null || echo "No APK/AAB files found"
+          npx --yes @nicolo-nicolo-nicolo/nicolo@latest build --manifest="./twa-manifest.json" --skipPwaValidation 2>/dev/null || \
+          npx --yes @nicolo-ribaudo/nicolo@latest build --manifest="./twa-manifest.json" --skipPwaValidation 2>/dev/null || \
+          npx --yes bubblewrap@latest build --manifest="./twa-manifest.json" --skipPwaValidation 2>/dev/null || \
+          echo "::warning::TWA build failed. Use 'Build Native APK' workflow instead."
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: tutor-map-apk
+          name: tutor-map-twa-apk
           path: |
             *.apk
             *.aab
           retention-days: 90
           if-no-files-found: warn
-
-      - name: Print signing fingerprint
-        if: success()
-        run: |
-          keytool -list -v \
-            -keystore ./android.keystore \
-            -alias tutor-map \
-            -storepass android \
-            2>/dev/null | grep SHA256 || true

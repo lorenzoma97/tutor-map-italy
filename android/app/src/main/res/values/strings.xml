@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tutor Map</string>
+    <string name="channel_name">Alert Tutor</string>
+    <string name="channel_description">Notifiche di prossimità ai Tutor autostradali</string>
+    <string name="monitoring_active">Monitoraggio Tutor attivo</string>
+    <string name="monitoring_description">GPS attivo in background per alert di prossimità</string>
+</resources>

@@ -515,6 +515,16 @@
             applyFilters();
         }
 
+        // === Notifiche web ===
+        let notificationsEnabled = false;
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                notificationsEnabled = true;
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(p => { notificationsEnabled = p === 'granted'; });
+            }
+        }
+
         // === Alert di prossimità ===
         const ALERT_RADIUS_KM = 2;
         let alertedSegments = new Set();
@@ -544,15 +554,31 @@
         }
 
         function showProximityAlert(seg, dist) {
-            const banner = document.getElementById('alertBanner');
-            const text = document.getElementById('alertText');
             const tipo = seg.type === 'tutor_3.0' ? ' [3.0]' : '';
             const distStr = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
-            text.textContent = `TUTOR ${seg.highway}${tipo} tra ${distStr} — ${seg.start_name} > ${seg.end_name}`;
+            const msg = `TUTOR ${seg.highway}${tipo} tra ${distStr} — ${seg.start_name} > ${seg.end_name}`;
+
+            // Banner visivo
+            const banner = document.getElementById('alertBanner');
+            const text = document.getElementById('alertText');
+            text.textContent = msg;
             banner.style.display = 'block';
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             clearTimeout(alertTimeout);
             alertTimeout = setTimeout(dismissAlert, 10000);
+
+            // Notifica di sistema (funziona anche se la tab non e' in primo piano)
+            if (notificationsEnabled) {
+                try {
+                    new Notification(`TUTOR tra ${distStr}`, {
+                        body: `${seg.highway} ${seg.start_name} > ${seg.end_name} Dir.${seg.direction}${tipo}`,
+                        icon: 'icons/icon-192x192.png',
+                        tag: 'tutor-alert',
+                        renotify: true,
+                        requireInteraction: false
+                    });
+                } catch (_) {}
+            }
         }
 
         function dismissAlert() {
