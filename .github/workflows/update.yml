@@ -11,6 +11,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 jobs:
   update:
@@ -26,7 +27,7 @@ jobs:
       - name: Installa dipendenze
         run: pip install -r requirements.txt
 
-      - name: Esegui scraper
+      - name: Esegui scraper + validazione fonti
         run: python scraper.py
 
       - name: Correggi tracciati con geometria OSM
@@ -39,7 +40,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tutor_segments.json tutor.kml
+          git add tutor_segments.json tutor.kml metadata.json scraper_log.json
           if git diff --staged --quiet; then
             echo "Nessun cambiamento nei dati"
           else
@@ -47,6 +48,30 @@ jobs:
             git pull --rebase origin master
             git push
           fi
+
+      - name: Crea issue GitHub se ci sono alert
+        if: always()
+        run: |
+          if [ -f scraper_alerts.json ]; then
+            BODY=$(python3 -c "
+          import json
+          alerts = json.load(open('scraper_alerts.json'))
+          print('## Alert validazione fonti Tutor\n')
+          print('| Livello | Fonte | Dettaglio |')
+          print('|---------|-------|-----------|')
+          for a in alerts:
+              print(f\"| {a['level'].upper()} | {a['source']} | {a['message']} |\")
+          print()
+          print('> Generato automaticamente dal workflow di aggiornamento.')
+          ")
+            gh issue create \
+              --title "Alert fonti Tutor $(date +%Y-%m-%d)" \
+              --body "$BODY"
+          else
+            echo "Nessun alert, nessuna issue da creare"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Deploy su GitHub Pages
         uses: actions/upload-pages-artifact@v3

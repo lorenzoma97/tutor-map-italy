@@ -6,8 +6,11 @@ Fonte secondaria: Sicurauto.it (lista completa + Tutor 3.0)
 """
 
 import json
+import os
 import re
 import sys
+import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -16,9 +19,13 @@ from bs4 import BeautifulSoup
 BASE_DIR = Path(__file__).parent
 CASELLI_FILE = BASE_DIR / "caselli_coords.json"
 OUTPUT_FILE = BASE_DIR / "tutor_segments.json"
+METADATA_FILE = BASE_DIR / "metadata.json"
+LOG_FILE = BASE_DIR / "scraper_log.json"
+ALERTS_FILE = BASE_DIR / "scraper_alerts.json"
 
 AUTOSTRADE_URL = "https://www.autostrade.it/it/tecnologia-sicurezza/sicurezza/il-tutor"
 SICURAUTO_URL = "https://www.sicurauto.it/news/traffico-e-viabilita/tutor-autostrade-mappa-dispositivi-attivi/"
+POLIZIA_PAGE_URL = "https://www.poliziadistato.it/articolo/tutor"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -676,6 +683,234 @@ def add_route_geometries_cached(segments):
     return segments
 
 
+def find_polizia_pdf_url():
+    """Cerca il link al PDF aggiornato sulla pagina della Polizia di Stato."""
+    try:
+        resp = requests.get(POLIZIA_PAGE_URL, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if "tutor" in href.lower() and href.endswith(".pdf"):
+                if not href.startswith("http"):
+                    href = "https://www.poliziadistato.it" + href
+                return href
+    except Exception as e:
+        print(f"   Errore ricerca PDF: {e}")
+    # Fallback URL noto
+    return "https://www.poliziadistato.it/statics/30/elenco-tratte-controllate-con-il-tutor---marzo-2025.pdf"
+
+
+def scrape_polizia_pdf():
+    """Scarica e analizza il PDF della Polizia di Stato per contare i tratti."""
+    print("📄 Cross-check PDF Polizia di Stato...")
+    try:
+        import pdfplumber
+    except ImportError:
+        print("   pdfplumber non installato, skip cross-check PDF")
+        return None, None
+
+    url = find_polizia_pdf_url()
+    print(f"   URL: {url}")
+
+    # Estrai data dal nome file
+    pdf_date = None
+    date_match = re.search(r'---(\w+-\d{4})\.pdf', url)
+    if date_match:
+        pdf_date = date_match.group(1)
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=60)
+        resp.raise_for_status()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(resp.content)
+            tmp_path = f.name
+
+        count = 0
+        highways = set()
+        with pdfplumber.open(tmp_path) as pdf:
+            for page in pdf.pages:
+                # Usa extract_tables (il PDF e' una tabella Excel convertita)
+                for table in (page.extract_tables() or []):
+                    for row in table:
+                        if not row or not any(row):
+                            continue
+                        row_text = ' '.join(str(c) for c in row if c)
+                        if re.search(r'A\d+', row_text):
+                            count += 1
+                            hw = re.search(r'(A\d+)', row_text)
+                            if hw:
+                                highways.add(hw.group(1))
+
+                # Fallback: analisi testo se nessuna tabella trovata
+                if count == 0:
+                    text = page.extract_text() or ""
+                    for line in text.split('\n'):
+                        if re.search(r'A\d+', line) and len(line) > 10:
+                            count += 1
+                            hw = re.search(r'(A\d+)', line)
+                            if hw:
+                                highways.add(hw.group(1))
+
+        os.unlink(tmp_path)
+        print(f"   Trovati ~{count} tratti in {len(highways)} autostrade (data PDF: {pdf_date or '?'})")
+        return count, pdf_date
+    except Exception as e:
+        print(f"   Errore PDF: {e}")
+        return None, pdf_date
+
+
+def validate_sources(hardcoded_count):
+    """Valida i dati incrociando le fonti, logga risultati, genera alert."""
+    print("\n" + "=" * 50)
+    print("  VALIDAZIONE FONTI")
+    print("=" * 50 + "\n")
+
+    results = {
+        "timestamp": datetime.now().isoformat(),
+        "hardcoded_count": hardcoded_count,
+        "alerts": []
+    }
+
+    # 1. Scrape Autostrade.it
+    autostrade_segs = scrape_autostrade()
+    results["autostrade_count"] = len(autostrade_segs)
+
+    # 2. Scrape Sicurauto.it
+    sicurauto_segs, tutor30 = scrape_sicurauto()
+    results["sicurauto_count"] = len(sicurauto_segs)
+    results["tutor30_count"] = len(tutor30)
+
+    # 3. PDF Polizia di Stato
+    pdf_count, pdf_date = scrape_polizia_pdf()
+    results["polizia_pdf_count"] = pdf_count
+    results["polizia_pdf_date"] = pdf_date
+
+    # --- Alert logic ---
+
+    # Autostrade.it irraggiungibile o HTML cambiato
+    if len(autostrade_segs) == 0:
+        results["alerts"].append({
+            "level": "warning",
+            "source": "Autostrade.it",
+            "message": "0 tratti estratti - sito irraggiungibile o struttura HTML cambiata"
+        })
+    elif abs(len(autostrade_segs) - hardcoded_count) > 10:
+        results["alerts"].append({
+            "level": "info",
+            "source": "Autostrade.it",
+            "message": f"Discrepanza: {len(autostrade_segs)} tratti online vs {hardcoded_count} hardcoded"
+        })
+
+    # Sicurauto.it irraggiungibile o nuovi tratti
+    if len(sicurauto_segs) == 0:
+        results["alerts"].append({
+            "level": "warning",
+            "source": "Sicurauto.it",
+            "message": "0 tratti estratti - sito irraggiungibile o struttura HTML cambiata"
+        })
+    elif len(sicurauto_segs) > hardcoded_count + 5:
+        results["alerts"].append({
+            "level": "info",
+            "source": "Sicurauto.it",
+            "message": f"Possibili nuovi tratti: {len(sicurauto_segs)} online vs {hardcoded_count} hardcoded"
+        })
+
+    # PDF cross-check
+    if pdf_count is not None and abs(pdf_count - hardcoded_count) > 15:
+        results["alerts"].append({
+            "level": "info",
+            "source": "Polizia di Stato",
+            "message": f"Discrepanza: ~{pdf_count} tratti nel PDF vs {hardcoded_count} hardcoded"
+        })
+
+    # Confronto con run precedente (calo improvviso)
+    prev = None
+    if LOG_FILE.exists():
+        try:
+            with open(LOG_FILE, "r") as f:
+                prev = json.load(f)
+        except Exception:
+            pass
+
+    if prev:
+        for key, label in [("autostrade_count", "Autostrade.it"), ("sicurauto_count", "Sicurauto.it")]:
+            prev_val = prev.get(key, 0)
+            curr_val = results.get(key, 0)
+            if prev_val > 10 and curr_val > 0 and curr_val < prev_val * 0.9:
+                drop_pct = (prev_val - curr_val) / prev_val * 100
+                results["alerts"].append({
+                    "level": "warning",
+                    "source": label,
+                    "message": f"Calo improvviso: {prev_val} -> {curr_val} (-{drop_pct:.0f}%)"
+                })
+
+    # Salva log (persiste tra i run per confronto)
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    # Salva alert separatamente per il workflow
+    if results["alerts"]:
+        with open(ALERTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(results["alerts"], f, indent=2, ensure_ascii=False)
+        print(f"\n⚠️  {len(results['alerts'])} alert generati!")
+        for a in results["alerts"]:
+            print(f"   [{a['level'].upper()}] {a['source']}: {a['message']}")
+    else:
+        if ALERTS_FILE.exists():
+            ALERTS_FILE.unlink()
+        print("\n✅ Nessun alert - tutte le fonti coerenti")
+
+    # Riepilogo
+    print(f"\n--- Riepilogo fonti ---")
+    print(f"   Dati in uso (hardcoded): {hardcoded_count} tratti")
+    print(f"   Autostrade.it (scrape):  {results['autostrade_count']} tratti")
+    print(f"   Sicurauto.it (scrape):   {results['sicurauto_count']} tratti ({results['tutor30_count']} Tutor 3.0)")
+    pdf_str = f"~{pdf_count}" if pdf_count else "N/A"
+    print(f"   Polizia di Stato (PDF):  {pdf_str} tratti ({pdf_date or 'data sconosciuta'})")
+
+    return results
+
+
+def save_metadata(segment_count, validation_results=None):
+    """Salva metadata.json con info aggiornamento per la web app."""
+    meta = {
+        "last_update": datetime.now().strftime("%Y-%m-%d"),
+        "segment_count": segment_count,
+        "sources": {
+            "primary": {
+                "name": "Autostrade per l'Italia",
+                "url": AUTOSTRADE_URL,
+                "scraped_count": None
+            },
+            "secondary": {
+                "name": "Sicurauto.it",
+                "url": SICURAUTO_URL,
+                "scraped_count": None
+            },
+            "cross_check": {
+                "name": "Polizia di Stato (PDF)",
+                "scraped_count": None,
+                "pdf_date": None
+            }
+        }
+    }
+
+    if validation_results:
+        meta["sources"]["primary"]["scraped_count"] = validation_results.get("autostrade_count")
+        meta["sources"]["secondary"]["scraped_count"] = validation_results.get("sicurauto_count")
+        meta["sources"]["cross_check"]["scraped_count"] = validation_results.get("polizia_pdf_count")
+        meta["sources"]["cross_check"]["pdf_date"] = validation_results.get("polizia_pdf_date")
+        if validation_results.get("alerts"):
+            meta["has_alerts"] = True
+            meta["alert_count"] = len(validation_results["alerts"])
+
+    with open(METADATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+    print(f"📋 Metadata salvato in {METADATA_FILE}")
+
+
 def main():
     print("🚗 Tutor Map Scraper - Aggiornamento dati\n")
 
@@ -706,6 +941,12 @@ def main():
         json.dump(valid, f, indent=2, ensure_ascii=False)
 
     print(f"\n💾 Salvato in {OUTPUT_FILE}")
+
+    # Validazione incrociata fonti + logging
+    validation = validate_sources(len(valid))
+
+    # Salva metadata per la web app
+    save_metadata(len(valid), validation)
 
 
 if __name__ == "__main__":

@@ -245,7 +245,13 @@
             maxZoom: 18
         }).addTo(map);
 
-        // Carica dati
+        // Carica metadata + dati
+        let lastUpdate = null;
+        fetch('metadata.json')
+            .then(r => r.ok ? r.json() : null)
+            .then(meta => { if (meta) lastUpdate = meta.last_update; })
+            .catch(() => {});
+
         fetch('tutor_segments.json')
             .then(r => r.json())
             .then(data => {
@@ -309,6 +315,10 @@
                     ? '<span class="badge tutor30">TUTOR 3.0</span>'
                     : '<span class="badge standard">Standard</span>';
 
+                const updateInfo = lastUpdate
+                    ? `<div class="info-row" style="margin-top:4px;border-top:1px solid #e0e0e0;padding-top:4px"><span class="info-label">Aggiornato</span><span class="info-value" style="font-size:11px;color:#888">${new Date(lastUpdate).toLocaleDateString('it-IT')}</span></div>`
+                    : '';
+
                 line.bindPopup(`
                     <div class="popup-content">
                         <h3>${seg.highway} — Dir. ${seg.direction}</h3>
@@ -316,6 +326,7 @@
                         <div class="info-row"><span class="info-label">A</span><span class="info-value">${seg.end_name}</span></div>
                         ${kmInfo}
                         <div class="info-row"><span class="info-label">Tipo</span>${typeLabel}</div>
+                        ${updateInfo}
                     </div>
                 `, { maxWidth: 280 });
 

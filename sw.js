@@ -3,6 +3,7 @@ const APP_SHELL = [
   '/tutor-map-italy/',
   '/tutor-map-italy/index.html',
   '/tutor-map-italy/tutor_segments.json',
+  '/tutor-map-italy/metadata.json',
   '/tutor-map-italy/manifest.json',
   '/tutor-map-italy/icons/icon-192x192.png',
   '/tutor-map-italy/icons/icon-512x512.png',
