@@ -4,8 +4,11 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.RectF
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -17,6 +20,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -63,6 +67,7 @@ class LocationService : Service() {
     private var overlaySpeed: TextView? = null
     private var overlayAvg: TextView? = null
     private var overlayInfo: TextView? = null
+    private var overlayProgress: SegmentProgressBar? = null
     private var overlayVisible = false
 
     // Speed
@@ -130,6 +135,7 @@ class LocationService : Service() {
 
     private fun speakText(text: String) {
         if (!ttsReady) return
+        if (!isSettingEnabled("sound", true)) return
 
         // Audio focus: chiedi transient duck (Maps abbassa il volume, non si ferma)
         val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
@@ -343,6 +349,7 @@ class LocationService : Service() {
                         entryLat = lat, entryLng = lng
                     )
                     showProximityAlert(seg, dist)
+                    openMapsPin(seg)
                 }
             }
         }
@@ -406,6 +413,7 @@ class LocationService : Service() {
     // ============ Floating Overlay ============
 
     private fun showOverlay() {
+        if (!isSettingEnabled("overlay", true)) return
         if (!Settings.canDrawOverlays(this)) {
             Log.w(TAG, "Permesso overlay non concesso")
             return
@@ -435,6 +443,14 @@ class LocationService : Service() {
             gravity = Gravity.CENTER
         }
 
+        val progressBar = SegmentProgressBar(this).apply {
+            val h = dp(6)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, h
+            ).apply { setMargins(0, dp(4), 0, dp(4)) }
+            visibility = View.GONE
+        }
+
         val infoTv = TextView(this).apply {
             textSize = 12f
             setTextColor(Color.argb(255, 150, 150, 150))
@@ -444,6 +460,7 @@ class LocationService : Service() {
 
         layout.addView(speedTv)
         layout.addView(avgTv)
+        layout.addView(progressBar)
         layout.addView(infoTv)
 
         val params = WindowManager.LayoutParams(
@@ -486,6 +503,7 @@ class LocationService : Service() {
             overlayView = layout
             overlaySpeed = speedTv
             overlayAvg = avgTv
+            overlayProgress = progressBar
             overlayInfo = infoTv
             overlayVisible = true
             Log.i(TAG, "Overlay mostrato")
@@ -515,9 +533,15 @@ class LocationService : Service() {
             if (activeInfo != null) {
                 val avg = activeInfo.avgSpeedKmh().toInt()
                 val limit = activeInfo.seg.speedLimit
+                val distStart = haversineKm(lat, lng, activeInfo.seg.startLat, activeInfo.seg.startLng)
                 val distEnd = haversineKm(lat, lng, activeInfo.seg.endLat, activeInfo.seg.endLng)
+                val segLen = haversineKm(activeInfo.seg.startLat, activeInfo.seg.startLng,
+                    activeInfo.seg.endLat, activeInfo.seg.endLng)
                 val distStr = if (distEnd < 1) "${(distEnd * 1000).toInt()}m"
                               else "${String.format("%.1f", distEnd)}km"
+
+                // Progresso nel tratto: quanto sei avanti rispetto alla lunghezza totale
+                val progress = if (segLen > 0) (distStart / segLen).coerceIn(0.0, 1.0) else 0.0
 
                 // Colore in base a media vs limite
                 val color = when {
@@ -528,6 +552,11 @@ class LocationService : Service() {
                 overlaySpeed?.setTextColor(color)
                 overlayAvg?.text = "Media: $avg/$limit km/h"
                 overlayAvg?.setTextColor(color)
+
+                // Progress bar
+                overlayProgress?.visibility = View.VISIBLE
+                overlayProgress?.update(progress.toFloat(), color)
+
                 overlayInfo?.text = "${activeInfo.seg.highway} · Fine tra $distStr"
 
                 // Bordo colorato
@@ -537,6 +566,7 @@ class LocationService : Service() {
             } else {
                 overlaySpeed?.setTextColor(Color.WHITE)
                 overlayAvg?.text = ""
+                overlayProgress?.visibility = View.GONE
 
                 // Trova il tratto più vicino nella direzione giusta
                 var nearestDist = Double.MAX_VALUE
@@ -680,5 +710,64 @@ class LocationService : Service() {
     private fun bearingDiff(b1: Double, b2: Double): Double {
         val diff = abs(b1 - b2) % 360
         return if (diff > 180) 360 - diff else diff
+    }
+
+    // ============ Settings helper ============
+
+    private fun isSettingEnabled(key: String, default: Boolean = true): Boolean {
+        return getSharedPreferences("tutor_prefs", MODE_PRIVATE).getBoolean(key, default)
+    }
+
+    // ============ Maps pin ============
+
+    private fun openMapsPin(seg: TutorSegment) {
+        if (!isSettingEnabled("maps_pin", true)) return
+        try {
+            val uri = Uri.parse("geo:${seg.endLat},${seg.endLng}?q=${seg.endLat},${seg.endLng}(Fine+Tutor+${seg.highway})")
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage("com.google.android.apps.maps")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Impossibile aprire Maps", e)
+        }
+    }
+
+    // ============ Custom ProgressBar ============
+
+    class SegmentProgressBar(context: Context) : View(context) {
+        var progress = 0f // 0.0 - 1.0
+        var barColor = Color.rgb(80, 220, 80)
+
+        private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(100, 255, 255, 255)
+        }
+        private val fgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val rect = RectF()
+        private val radius = 8f
+
+        override fun onDraw(canvas: Canvas) {
+            val w = width.toFloat()
+            val h = height.toFloat()
+
+            // Background
+            rect.set(0f, 0f, w, h)
+            canvas.drawRoundRect(rect, radius, radius, bgPaint)
+
+            // Filled portion
+            fgPaint.color = barColor
+            val fillW = (w * progress.coerceIn(0f, 1f))
+            if (fillW > 0) {
+                rect.set(0f, 0f, fillW, h)
+                canvas.drawRoundRect(rect, radius, radius, fgPaint)
+            }
+        }
+
+        fun update(progress: Float, color: Int) {
+            this.progress = progress
+            this.barColor = color
+            invalidate()
+        }
     }
 }

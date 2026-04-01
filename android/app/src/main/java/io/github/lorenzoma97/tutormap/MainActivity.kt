@@ -50,6 +50,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        findViewById<android.widget.ImageButton>(R.id.btnSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         // Controlla ottimizzazione batteria al primo avvio
         checkBatteryOptimization()
     }
