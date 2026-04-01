@@ -287,9 +287,24 @@ def main():
             kept += 1
             continue
 
-        # Skip tratti con fix manuale
+        # Fix manuale Ravenna Nord → Imola (A14 senza ref tag in OSM, route OSRM errata)
         if "Ravenna Nord" in seg.get("start_name", "") and "Imola" in seg.get("end_name", ""):
-            kept += 1
+            correct_route = [
+                [44.3459525, 11.8398457],
+                [44.3461285, 11.8394358],
+                [44.3556216, 11.81047],
+                [44.3619356, 11.7905368],
+                [44.3621284, 11.7900512],
+                [44.3638427, 11.7861793],
+                [44.3642019, 11.7854049],
+                [44.3783383, 11.7488552],
+                [44.3816949, 11.7395166],
+                [44.3818684, 11.7390469],
+            ]
+            seg["route_coords"] = correct_route
+            seg["start_coords"] = correct_route[0]
+            seg["end_coords"] = correct_route[-1]
+            updated += 1
             continue
 
         subpath = extract_subpath(highway_chains[hwy], start, end)
