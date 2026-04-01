@@ -505,7 +505,9 @@
             }
             compassActive = false;
             alertedSegments.clear();
+            activeSegments.clear();
             dismissAlert();
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
             const btn = document.getElementById('compassBtn');
             const status = document.getElementById('compassStatus');
             btn.textContent = 'Attiva bussola';
@@ -525,9 +527,31 @@
             }
         }
 
+        // === Text-to-Speech ===
+        function speak(text) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utt = new SpeechSynthesisUtterance(text);
+            utt.lang = 'it-IT';
+            utt.rate = 0.95;
+            utt.volume = 1;
+            // Preferisci voce italiana
+            const voices = window.speechSynthesis.getVoices();
+            const itVoice = voices.find(v => v.lang.startsWith('it'));
+            if (itVoice) utt.voice = itVoice;
+            window.speechSynthesis.speak(utt);
+        }
+        // Pre-carica voci (su alcuni browser serve)
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
+
         // === Alert di prossimità ===
         const ALERT_RADIUS_KM = 2;
+        const END_RADIUS_KM = 0.8;
         let alertedSegments = new Set();
+        let activeSegments = new Map(); // segId -> {seg, enteredAt}
         let alertTimeout = null;
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -541,12 +565,29 @@
         }
 
         function checkProximity(lat, lng) {
+            // 1. Controlla fine tratti attivi
+            for (const [segId, info] of activeSegments) {
+                if (!info.seg.end_coords) continue;
+                const distEnd = haversineDistance(lat, lng, info.seg.end_coords[0], info.seg.end_coords[1]);
+                if (distEnd < END_RADIUS_KM) {
+                    activeSegments.delete(segId);
+                    showEndAlert(info.seg);
+                }
+                // Auto-rimuovi se troppo lontano (ha cambiato strada)
+                const distStart = haversineDistance(lat, lng, info.seg.start_coords[0], info.seg.start_coords[1]);
+                if (distStart > 15 && distEnd > 15) {
+                    activeSegments.delete(segId);
+                }
+            }
+
+            // 2. Controlla inizio nuovi tratti
             for (const seg of allSegments) {
                 if (!seg.start_coords) continue;
                 const dist = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
                 const segId = `${seg.highway}-${seg.start_name}-${seg.direction}`;
                 if (dist < ALERT_RADIUS_KM && !alertedSegments.has(segId)) {
                     alertedSegments.add(segId);
+                    activeSegments.set(segId, { seg, enteredAt: Date.now() });
                     showProximityAlert(seg, dist);
                     break;
                 }
@@ -563,11 +604,19 @@
             const text = document.getElementById('alertText');
             text.textContent = msg;
             banner.style.display = 'block';
+            banner.style.background = 'linear-gradient(135deg,#ff6f00,#e65100)';
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             clearTimeout(alertTimeout);
             alertTimeout = setTimeout(dismissAlert, 10000);
 
-            // Notifica di sistema (funziona anche se la tab non e' in primo piano)
+            // Voce: prima km, poi citta'
+            const distVoce = dist < 1 ? `${Math.round(dist * 1000)} metri` : `${dist.toFixed(1)} chilometri`;
+            const tipoVoce = seg.type === 'tutor_3.0' ? ', tutor 3.0' : '';
+            const kmVoce = (seg.start_km != null && seg.end_km != null)
+                ? `, dal chilometro ${Math.round(seg.start_km)} al chilometro ${Math.round(seg.end_km)}` : '';
+            speak(`Attenzione, tutor ${seg.highway}${tipoVoce} tra ${distVoce}${kmVoce}, da ${seg.start_name} a ${seg.end_name}`);
+
+            // Notifica di sistema
             if (notificationsEnabled) {
                 try {
                     new Notification(`TUTOR tra ${distStr}`, {
@@ -579,6 +628,20 @@
                     });
                 } catch (_) {}
             }
+        }
+
+        function showEndAlert(seg) {
+            const banner = document.getElementById('alertBanner');
+            const text = document.getElementById('alertText');
+            text.textContent = `Tratto ${seg.highway} ${seg.start_name} > ${seg.end_name} terminato`;
+            banner.style.display = 'block';
+            banner.style.background = 'linear-gradient(135deg,#2e7d32,#1b5e20)';
+            if (navigator.vibrate) navigator.vibrate([100]);
+            clearTimeout(alertTimeout);
+            alertTimeout = setTimeout(dismissAlert, 6000);
+
+            // Voce
+            speak(`Tratto tutor ${seg.highway} terminato`);
         }
 
         function dismissAlert() {

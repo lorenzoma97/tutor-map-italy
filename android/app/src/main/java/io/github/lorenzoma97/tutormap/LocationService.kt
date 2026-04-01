@@ -4,12 +4,14 @@ import android.app.*
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.*
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 import kotlin.math.*
 
 class LocationService : Service() {
@@ -21,6 +23,7 @@ class LocationService : Service() {
         const val NOTIFICATION_PERSISTENT_ID = 1
         const val NOTIFICATION_ALERT_ID = 2
         const val ALERT_RADIUS_KM = 2.0
+        const val END_RADIUS_KM = 0.8
         const val ALERT_COOLDOWN_MS = 5 * 60 * 1000L // 5 minuti tra alert stesso tratto
         const val DATA_URL = "https://lorenzoma97.github.io/tutor-map-italy/tutor_segments.json"
         const val ACTION_STOP = "io.github.lorenzoma97.tutormap.STOP"
@@ -28,17 +31,24 @@ class LocationService : Service() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
     private var segments: List<TutorSegment> = emptyList()
     private val alertedSegments = mutableMapOf<String, Long>() // segId -> timestamp
+    private val activeSegments = mutableMapOf<String, TutorSegment>() // tratti in corso
     private val handler = Handler(Looper.getMainLooper())
 
     data class TutorSegment(
         val highway: String,
         val startName: String,
         val endName: String,
+        val startKm: Double?,
+        val endKm: Double?,
         val direction: String,
         val startLat: Double,
         val startLng: Double,
+        val endLat: Double,
+        val endLng: Double,
         val type: String
     ) {
         val id get() = "$highway-$startName-$direction"
@@ -48,7 +58,24 @@ class LocationService : Service() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         createNotificationChannels()
+        initTts()
         loadSegmentsAsync()
+    }
+
+    private fun initTts() {
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.ITALIAN
+                ttsReady = true
+                Log.i(TAG, "TTS inizializzato")
+            }
+        }
+    }
+
+    private fun speakText(text: String) {
+        if (ttsReady) {
+            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "tutor_alert_${System.currentTimeMillis()}")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -70,6 +97,9 @@ class LocationService : Service() {
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (_: Exception) {}
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
     }
 
     private fun createNotificationChannels() {
@@ -147,12 +177,31 @@ class LocationService : Service() {
         if (segments.isEmpty()) return
 
         val now = System.currentTimeMillis()
+
+        // 1. Controlla fine tratti attivi
+        val ended = mutableListOf<String>()
+        for ((segId, seg) in activeSegments) {
+            val distEnd = haversineKm(lat, lng, seg.endLat, seg.endLng)
+            if (distEnd < END_RADIUS_KM) {
+                ended.add(segId)
+                showEndAlert(seg)
+            }
+            // Auto-rimuovi se troppo lontano
+            val distStart = haversineKm(lat, lng, seg.startLat, seg.startLng)
+            if (distStart > 15 && distEnd > 15) {
+                ended.add(segId)
+            }
+        }
+        ended.forEach { activeSegments.remove(it) }
+
+        // 2. Controlla inizio nuovi tratti
         for (seg in segments) {
             val dist = haversineKm(lat, lng, seg.startLat, seg.startLng)
             if (dist < ALERT_RADIUS_KM) {
                 val lastAlert = alertedSegments[seg.id]
                 if (lastAlert == null || now - lastAlert > ALERT_COOLDOWN_MS) {
                     alertedSegments[seg.id] = now
+                    activeSegments[seg.id] = seg
                     showProximityAlert(seg, dist)
                 }
             }
@@ -161,10 +210,32 @@ class LocationService : Service() {
 
     private fun showProximityAlert(seg: TutorSegment, distKm: Double) {
         val distMeters = (distKm * 1000).toInt()
-        val title = "⚠️ TUTOR tra ${distMeters}m"
-        val body = "${seg.highway} · ${seg.startName} → ${seg.endName} · Dir. ${seg.direction}" +
-                if (seg.type == "tutor_3.0") " [3.0]" else ""
+        val tipo30 = if (seg.type == "tutor_3.0") " [3.0]" else ""
+        val title = "TUTOR tra ${distMeters}m"
+        val body = "${seg.highway} · ${seg.startName} → ${seg.endName} · Dir. ${seg.direction}$tipo30"
 
+        showNotification(title, body)
+
+        // Voce: prima km, poi citta'
+        val distVoce = if (distKm < 1) "${distMeters} metri" else "${String.format("%.1f", distKm)} chilometri"
+        val kmVoce = if (seg.startKm != null && seg.endKm != null)
+            ", dal chilometro ${seg.startKm.toInt()} al chilometro ${seg.endKm.toInt()}" else ""
+        val tipoVoce = if (seg.type == "tutor_3.0") ", tutor 3.0" else ""
+        speakText("Attenzione, tutor ${seg.highway}$tipoVoce tra $distVoce$kmVoce, da ${seg.startName} a ${seg.endName}")
+
+        Log.i(TAG, "ALERT: ${seg.id} a ${distMeters}m")
+    }
+
+    private fun showEndAlert(seg: TutorSegment) {
+        showNotification(
+            "Tratto terminato",
+            "${seg.highway} ${seg.startName} → ${seg.endName} completato"
+        )
+        speakText("Tratto tutor ${seg.highway} terminato")
+        Log.i(TAG, "END: ${seg.id}")
+    }
+
+    private fun showNotification(title: String, body: String) {
         val openIntent = Intent(this, MainActivity::class.java)
         val openPending = PendingIntent.getActivity(this, 1, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -183,8 +254,6 @@ class LocationService : Service() {
 
         val mgr = getSystemService(NotificationManager::class.java)
         mgr.notify(NOTIFICATION_ALERT_ID, notification)
-
-        Log.i(TAG, "ALERT: ${seg.id} a ${distMeters}m")
     }
 
     private fun loadSegmentsAsync() {
@@ -202,14 +271,20 @@ class LocationService : Service() {
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val startCoords = obj.optJSONArray("start_coords")
-                    if (startCoords != null && startCoords.length() >= 2) {
+                    val endCoords = obj.optJSONArray("end_coords")
+                    if (startCoords != null && startCoords.length() >= 2 &&
+                        endCoords != null && endCoords.length() >= 2) {
                         list.add(TutorSegment(
                             highway = obj.optString("highway", ""),
                             startName = obj.optString("start_name", ""),
                             endName = obj.optString("end_name", ""),
+                            startKm = if (obj.has("start_km")) obj.optDouble("start_km") else null,
+                            endKm = if (obj.has("end_km")) obj.optDouble("end_km") else null,
                             direction = obj.optString("direction", ""),
                             startLat = startCoords.getDouble(0),
                             startLng = startCoords.getDouble(1),
+                            endLat = endCoords.getDouble(0),
+                            endLng = endCoords.getDouble(1),
                             type = obj.optString("type", "standard")
                         ))
                     }
@@ -217,7 +292,6 @@ class LocationService : Service() {
                 segments = list
                 Log.i(TAG, "Caricati ${list.size} tratti Tutor")
 
-                // Aggiorna notifica
                 handler.post {
                     val notification = buildPersistentNotification(
                         "GPS attivo · ${list.size} tratti monitorati"
