@@ -650,10 +650,49 @@
         });
         document.addEventListener('touchend', () => { sheetDragging = false; });
 
-        // ============ GPS / Compass ============
+        // ============ GPS / Direction Detection ============
         let compassActive = false;
         let watchId = null;
         let userMarker = null;
+        const positionBuffer = []; // {lat, lng, time} — last N positions
+        const POSITION_BUFFER_SIZE = 10;
+        const MIN_TRAVEL_DISTANCE_M = 50; // min meters to consider bearing valid
+
+        function calcBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const rlat1 = lat1 * Math.PI / 180, rlat2 = lat2 * Math.PI / 180;
+            const x = Math.sin(dLon) * Math.cos(rlat2);
+            const y = Math.cos(rlat1) * Math.sin(rlat2) -
+                      Math.sin(rlat1) * Math.cos(rlat2) * Math.cos(dLon);
+            return ((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360;
+        }
+
+        function getUserBearing() {
+            if (positionBuffer.length < 2) return null;
+            const oldest = positionBuffer[0];
+            const newest = positionBuffer[positionBuffer.length - 1];
+            const dist = haversineDistance(oldest.lat, oldest.lng, newest.lat, newest.lng) * 1000;
+            if (dist < MIN_TRAVEL_DISTANCE_M) return null; // fermo o quasi
+            return calcBearing(oldest.lat, oldest.lng, newest.lat, newest.lng);
+        }
+
+        function getSegmentBearing(seg) {
+            return calcBearing(seg.start_coords[0], seg.start_coords[1],
+                             seg.end_coords[0], seg.end_coords[1]);
+        }
+
+        function bearingDiff(b1, b2) {
+            let diff = Math.abs(b1 - b2) % 360;
+            return diff > 180 ? 360 - diff : diff;
+        }
+
+        function isMatchingDirection(seg) {
+            const userBearing = getUserBearing();
+            if (userBearing === null) return true; // se non sappiamo, mostra (meglio falso positivo)
+            if (!seg.end_coords) return true;
+            const segBearing = getSegmentBearing(seg);
+            return bearingDiff(userBearing, segBearing) < 60;
+        }
 
         function headingToDirection(heading) {
             if (heading >= 315 || heading < 45) return 'Nord';
@@ -679,9 +718,15 @@
             document.getElementById('hud').style.display = 'block';
             sheet.classList.add('hidden');
 
+            positionBuffer.length = 0; // reset buffer on start
+
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
-                    const { latitude, longitude, heading } = pos.coords;
+                    const { latitude, longitude } = pos.coords;
+
+                    // Feed position buffer for direction detection
+                    positionBuffer.push({ lat: latitude, lng: longitude, time: Date.now() });
+                    if (positionBuffer.length > POSITION_BUFFER_SIZE) positionBuffer.shift();
 
                     if (userMarker) {
                         userMarker.setLatLng([latitude, longitude]);
@@ -697,8 +742,10 @@
                     checkProximity(latitude, longitude);
                     updateHUD(latitude, longitude);
 
-                    if (heading != null && !isNaN(heading)) {
-                        const dir = headingToDirection(heading);
+                    // Auto-filter direction based on trajectory
+                    const userBearing = getUserBearing();
+                    if (userBearing !== null) {
+                        const dir = headingToDirection(userBearing);
                         document.getElementById('filterDirection').value = dir;
                         applyFilters();
                     }
@@ -736,6 +783,7 @@
 
             for (const seg of allSegments) {
                 if (!seg.start_coords) continue;
+                if (!isMatchingDirection(seg)) continue; // solo direzione giusta
                 const d = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
                 if (d < nearestDist) { nearestDist = d; nearest = seg; }
             }
@@ -822,12 +870,12 @@
                 if (distStart > 15 && distEnd > 15) activeSegments.delete(segId);
             }
 
-            // 2. Inizio nuovi tratti
+            // 2. Inizio nuovi tratti (solo nella direzione giusta)
             for (const seg of allSegments) {
                 if (!seg.start_coords) continue;
                 const dist = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
                 const segId = `${seg.highway}-${seg.start_name}-${seg.direction}`;
-                if (dist < ALERT_RADIUS_KM && !alertedSegments.has(segId)) {
+                if (dist < ALERT_RADIUS_KM && !alertedSegments.has(segId) && isMatchingDirection(seg)) {
                     alertedSegments.add(segId);
                     activeSegments.set(segId, { seg, enteredAt: Date.now() });
                     showProximityAlert(seg, dist);

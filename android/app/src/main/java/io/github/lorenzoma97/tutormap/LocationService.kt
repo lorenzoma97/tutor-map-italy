@@ -27,6 +27,9 @@ class LocationService : Service() {
         const val ALERT_COOLDOWN_MS = 5 * 60 * 1000L // 5 minuti tra alert stesso tratto
         const val DATA_URL = "https://lorenzoma97.github.io/tutor-map-italy/tutor_segments.json"
         const val ACTION_STOP = "io.github.lorenzoma97.tutormap.STOP"
+        const val POSITION_BUFFER_SIZE = 10
+        const val MIN_TRAVEL_DISTANCE_M = 50.0
+        const val MAX_BEARING_DIFF = 60.0 // gradi di tolleranza
     }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -37,6 +40,9 @@ class LocationService : Service() {
     private val alertedSegments = mutableMapOf<String, Long>() // segId -> timestamp
     private val activeSegments = mutableMapOf<String, TutorSegment>() // tratti in corso
     private val handler = Handler(Looper.getMainLooper())
+    private val positionBuffer = ArrayDeque<LatLng>(POSITION_BUFFER_SIZE + 1) // buffer traiettoria
+
+    data class LatLng(val lat: Double, val lng: Double)
 
     data class TutorSegment(
         val highway: String,
@@ -154,11 +160,26 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
+
+                // Feed position buffer per rilevamento direzione
+                positionBuffer.addLast(LatLng(loc.latitude, loc.longitude))
+                while (positionBuffer.size > POSITION_BUFFER_SIZE) positionBuffer.removeFirst()
+
                 checkProximity(loc.latitude, loc.longitude)
 
-                // Aggiorna notifica persistente con posizione
+                // Aggiorna notifica persistente con direzione
+                val bearing = getUserBearing()
+                val dirStr = if (bearing != null) {
+                    val dir = when {
+                        bearing >= 315 || bearing < 45 -> "N"
+                        bearing >= 45 && bearing < 135 -> "E"
+                        bearing >= 135 && bearing < 225 -> "S"
+                        else -> "O"
+                    }
+                    " · Dir. $dir"
+                } else ""
                 val notification = buildPersistentNotification(
-                    "GPS attivo · ${segments.size} tratti monitorati"
+                    "GPS attivo · ${segments.size} tratti$dirStr"
                 )
                 val mgr = getSystemService(NotificationManager::class.java)
                 mgr.notify(NOTIFICATION_PERSISTENT_ID, notification)
@@ -194,10 +215,10 @@ class LocationService : Service() {
         }
         ended.forEach { activeSegments.remove(it) }
 
-        // 2. Controlla inizio nuovi tratti
+        // 2. Controlla inizio nuovi tratti (solo nella direzione giusta)
         for (seg in segments) {
             val dist = haversineKm(lat, lng, seg.startLat, seg.startLng)
-            if (dist < ALERT_RADIUS_KM) {
+            if (dist < ALERT_RADIUS_KM && isMatchingDirection(seg)) {
                 val lastAlert = alertedSegments[seg.id]
                 if (lastAlert == null || now - lastAlert > ALERT_COOLDOWN_MS) {
                     alertedSegments[seg.id] = now
@@ -313,5 +334,38 @@ class LocationService : Service() {
                 cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
                 sin(dLon / 2).pow(2)
         return R * 2 * asin(sqrt(a))
+    }
+
+    /** Calcola bearing in gradi (0-360) da punto A a punto B */
+    private fun calcBearing(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val dLon = Math.toRadians(lon2 - lon1)
+        val rlat1 = Math.toRadians(lat1)
+        val rlat2 = Math.toRadians(lat2)
+        val x = sin(dLon) * cos(rlat2)
+        val y = cos(rlat1) * sin(rlat2) - sin(rlat1) * cos(rlat2) * cos(dLon)
+        return (Math.toDegrees(atan2(x, y)) + 360) % 360
+    }
+
+    /** Bearing dell'utente basata sulla traiettoria degli ultimi N punti GPS */
+    private fun getUserBearing(): Double? {
+        if (positionBuffer.size < 2) return null
+        val oldest = positionBuffer.first()
+        val newest = positionBuffer.last()
+        val dist = haversineKm(oldest.lat, oldest.lng, newest.lat, newest.lng) * 1000
+        if (dist < MIN_TRAVEL_DISTANCE_M) return null // fermo o quasi
+        return calcBearing(oldest.lat, oldest.lng, newest.lat, newest.lng)
+    }
+
+    /** Differenza angolare minima tra due bearing (0-180) */
+    private fun bearingDiff(b1: Double, b2: Double): Double {
+        val diff = abs(b1 - b2) % 360
+        return if (diff > 180) 360 - diff else diff
+    }
+
+    /** Verifica se il tratto è nella direzione di marcia dell'utente */
+    private fun isMatchingDirection(seg: TutorSegment): Boolean {
+        val userBearing = getUserBearing() ?: return true // se non sappiamo, mostra (meglio falso positivo)
+        val segBearing = calcBearing(seg.startLat, seg.startLng, seg.endLat, seg.endLng)
+        return bearingDiff(userBearing, segBearing) < MAX_BEARING_DIFF
     }
 }
