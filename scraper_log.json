@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-01T08:54:11.952019",
+  "hardcoded_count": 202,
+  "alerts": [
+    {
+      "level": "warning",
+      "source": "Autostrade.it",
+      "message": "0 tratti estratti - sito irraggiungibile o struttura HTML cambiata"
+    },
+    {
+      "level": "info",
+      "source": "Polizia di Stato",
+      "message": "Discrepanza: ~15 tratti nel PDF vs 202 hardcoded"
+    }
+  ],
+  "autostrade_count": 0,
+  "sicurauto_count": 200,
+  "tutor30_count": 0,
+  "polizia_pdf_count": 15,
+  "polizia_pdf_date": "marzo-2025"
+}

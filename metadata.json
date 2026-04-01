@@ -5,17 +5,19 @@
     "primary": {
       "name": "Autostrade per l'Italia",
       "url": "https://www.autostrade.it/it/tecnologia-sicurezza/sicurezza/il-tutor",
-      "scraped_count": null
+      "scraped_count": 0
     },
     "secondary": {
       "name": "Sicurauto.it",
       "url": "https://www.sicurauto.it/news/traffico-e-viabilita/tutor-autostrade-mappa-dispositivi-attivi/",
-      "scraped_count": null
+      "scraped_count": 200
     },
     "cross_check": {
       "name": "Polizia di Stato (PDF)",
-      "scraped_count": null,
-      "pdf_date": null
+      "scraped_count": 15,
+      "pdf_date": "marzo-2025"
     }
-  }
+  },
+  "has_alerts": true,
+  "alert_count": 2
 }
