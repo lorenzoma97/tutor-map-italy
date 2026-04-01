@@ -903,7 +903,7 @@
             const tipoVoce = seg.type === 'tutor_3.0' ? ', tutor 3.0' : '';
             const kmVoce = (seg.start_km != null && seg.end_km != null)
                 ? `, dal chilometro ${Math.round(seg.start_km)} al chilometro ${Math.round(seg.end_km)}` : '';
-            speak(`Attenzione, tutor ${seg.highway}${tipoVoce} tra ${distVoce}${kmVoce}, da ${seg.start_name} a ${seg.end_name}`);
+            speak(`Attenzione, tutor ${seg.highway}${tipoVoce} tra ${distVoce}${kmVoce}`);
 
             if (notificationsEnabled) {
                 try {

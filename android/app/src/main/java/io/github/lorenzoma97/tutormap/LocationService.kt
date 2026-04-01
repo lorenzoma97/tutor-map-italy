@@ -360,8 +360,7 @@ class LocationService : Service() {
         val kmVoce = if (seg.startKm != null && seg.endKm != null)
             ", dal chilometro ${seg.startKm.toInt()} al chilometro ${seg.endKm.toInt()}" else ""
         val tipoVoce = if (seg.type == "tutor_3.0") ", tutor 3.0" else ""
-        val limiteVoce = ", limite ${seg.speedLimit}"
-        speakText("Attenzione, tutor ${seg.highway}$tipoVoce tra $distVoce$limiteVoce$kmVoce, da ${seg.startName} a ${seg.endName}")
+        speakText("Attenzione, tutor ${seg.highway}$tipoVoce tra $distVoce$kmVoce")
 
         Log.i(TAG, "ALERT: ${seg.id} a ${distMeters}m")
     }
