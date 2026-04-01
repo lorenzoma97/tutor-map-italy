@@ -4,175 +4,433 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a73e8">
+    <meta name="color-scheme" content="light dark">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-    <title>Mappa Tutor Autostradali Italia</title>
+    <title>Tutor Map Italia</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        #map { width: 100%; height: 100vh; }
-
-        .controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            max-width: 300px;
-            max-height: 90vh;
-            overflow-y: auto;
+        :root {
+            --bg: #ffffff;
+            --bg-card: #ffffff;
+            --bg-sheet: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #e0e0e0;
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --surface: #f5f5f5;
+            --shadow: rgba(0,0,0,0.15);
+            --map-filter: none;
         }
-        .controls-header {
-            padding: 12px 16px;
-            background: #1a73e8;
-            color: white;
-            border-radius: 8px 8px 0 0;
-            font-weight: 600;
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111111;
+                --bg-card: #1e1e1e;
+                --bg-sheet: #1a1a1a;
+                --text: #e8e8e8;
+                --text-secondary: #aaaaaa;
+                --text-muted: #777777;
+                --border: #333333;
+                --primary: #5b9cf4;
+                --primary-dark: #3d7dd9;
+                --surface: #252525;
+                --shadow: rgba(0,0,0,0.5);
+                --map-filter: brightness(0.75) contrast(1.1) saturate(0.8);
+            }
+            .leaflet-tile-pane { filter: var(--map-filter); }
+            .leaflet-control-zoom a {
+                background: var(--bg-card) !important;
+                color: var(--text) !important;
+                border-color: var(--border) !important;
+            }
+            .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+                background: var(--bg-card) !important;
+                color: var(--text) !important;
+            }
+            .leaflet-control-attribution {
+                background: rgba(30,30,30,0.8) !important;
+                color: var(--text-muted) !important;
+            }
+            .leaflet-control-attribution a { color: var(--text-secondary) !important; }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+        #map { width: 100%; height: 100vh; height: 100dvh; }
+
+        /* ============ HUD — always visible during GPS ============ */
+        #hud {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1500;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow);
+            padding: 10px 20px;
+            text-align: center;
+            min-width: 200px;
+            border: 2px solid var(--primary);
+            transition: border-color 0.3s;
+        }
+        #hud.alert-approaching { border-color: #ff9800; }
+        #hud.alert-inzone { border-color: #f44336; animation: hud-pulse 1.2s infinite; }
+        #hud.alert-exited { border-color: #4caf50; }
+        @keyframes hud-pulse {
+            0%, 100% { box-shadow: 0 4px 20px var(--shadow); }
+            50% { box-shadow: 0 4px 30px rgba(244,67,54,0.5); }
+        }
+        .hud-distance {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--text);
+        }
+        .hud-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .hud-highway {
             font-size: 14px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 2px;
+        }
+
+        /* ============ Alert Banner ============ */
+        #alertBanner {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            left: 12px;
+            right: 12px;
+            z-index: 2000;
+            border-radius: 16px;
+            padding: 16px 20px;
+            font-weight: 700;
+            font-size: 16px;
+            text-align: center;
+            color: white;
             cursor: pointer;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        #alertBanner.alert-start {
+            background: linear-gradient(135deg, #ff6f00, #e65100);
+        }
+        #alertBanner.alert-end {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+        }
+        #alertDismiss {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 22px;
+            opacity: 0.8;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ============ FAB — GPS toggle ============ */
+        #fab {
+            position: fixed;
+            bottom: 24px;
+            right: 16px;
+            z-index: 1200;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 26px;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.1s;
+        }
+        #fab:active { transform: scale(0.92); }
+        #fab.active {
+            background: #f44336;
+            animation: fab-ring 2s infinite;
+        }
+        @keyframes fab-ring {
+            0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+            50% { box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 8px rgba(244,67,54,0.2); }
+        }
+
+        /* ============ Bottom Sheet ============ */
+        #sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1100;
+            background: var(--bg-sheet);
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -4px 20px var(--shadow);
+            max-height: 70vh;
+            transform: translateY(calc(100% - 56px));
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        #sheet.open { transform: translateY(0); }
+        #sheet.hidden { transform: translateY(100%); }
+
+        .sheet-handle {
+            width: 100%;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            cursor: grab;
+        }
+        .sheet-handle::after {
+            content: '';
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+        }
+        .sheet-header {
+            padding: 0 20px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .controls-header .toggle { font-size: 18px; }
-        .controls-body {
-            padding: 12px 16px;
+        .sheet-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
         }
-        .controls-body.collapsed { display: none; }
-        .filter-group {
+        .sheet-badge {
+            font-size: 12px;
+            background: var(--primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .sheet-content {
+            padding: 0 20px 24px;
+            overflow-y: auto;
+            max-height: calc(70vh - 80px);
+        }
+
+        /* Filters inside sheet */
+        .filter-row {
             margin-bottom: 12px;
         }
-        .filter-group label {
+        .filter-row label {
             display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: #555;
-            margin-bottom: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
         }
-        .filter-group select, .filter-group button {
+        .filter-row select {
             width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            background: white;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            background: var(--surface);
+            color: var(--text);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            min-height: 48px;
         }
-        .filter-group button {
-            background: #1a73e8;
-            color: white;
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .btn {
+            flex: 1;
+            padding: 14px;
             border: none;
-            cursor: pointer;
+            border-radius: 12px;
+            font-size: 14px;
             font-weight: 600;
-            margin-top: 4px;
+            cursor: pointer;
+            min-height: 48px;
+            transition: opacity 0.15s;
         }
-        .filter-group button:hover { background: #1557b0; }
-        .filter-group button.secondary {
-            background: #f1f3f4;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-        .filter-group button.secondary:hover { background: #e0e0e0; }
+        .btn:active { opacity: 0.7; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-        .stats {
-            font-size: 12px;
-            color: #666;
-            padding-top: 8px;
-            border-top: 1px solid #eee;
-        }
-        .stats span { font-weight: 600; color: #333; }
-
-        .legend {
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-top: 1px solid var(--border);
             margin-top: 12px;
-            padding-top: 8px;
-            border-top: 1px solid #eee;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .stats-bar strong { color: var(--text); }
+
+        /* Legend */
+        .legend { margin-top: 12px; }
+        .legend-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
         }
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 4px;
             font-size: 12px;
+            color: var(--text-secondary);
+            padding: 2px 0;
         }
-        .legend-color {
-            width: 20px;
+        .legend-dot {
+            width: 12px;
             height: 4px;
             border-radius: 2px;
-            margin-right: 8px;
+            margin-right: 6px;
             flex-shrink: 0;
         }
-        .legend-color.dashed {
-            background: repeating-linear-gradient(
-                90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px
-            );
-            height: 3px;
-        }
 
-        .popup-content h3 {
-            margin: 0 0 6px 0;
-            font-size: 15px;
-            color: #1a73e8;
+        /* ============ Popup ============ */
+        .popup-content {
+            min-width: 200px;
         }
-        .popup-content .info-row {
+        .popup-bar {
+            height: 4px;
+            border-radius: 2px;
+            margin-bottom: 8px;
+        }
+        .popup-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        .popup-row {
             display: flex;
             justify-content: space-between;
-            padding: 3px 0;
+            align-items: center;
+            padding: 4px 0;
             font-size: 13px;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--border);
         }
-        .popup-content .info-row:last-child { border-bottom: none; }
-        .popup-content .info-label { color: #666; }
-        .popup-content .info-value { font-weight: 600; color: #333; }
-        .popup-content .badge {
+        .popup-row:last-child { border-bottom: none; }
+        .popup-label { color: var(--text-secondary); }
+        .popup-value { font-weight: 600; color: var(--text); }
+        .popup-badge {
             display: inline-block;
             padding: 2px 8px;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
         }
-        .popup-content .badge.tutor30 { background: #fce4ec; color: #c62828; }
-        .popup-content .badge.standard { background: #e3f2fd; color: #1565c0; }
+        .popup-badge.t30 { background: #fce4ec; color: #c62828; }
+        .popup-badge.std { background: #e3f2fd; color: #1565c0; }
+        .popup-source {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid var(--border);
+        }
 
-        @media (max-width: 600px) {
-            .controls {
-                top: auto;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                max-width: 100%;
-                border-radius: 12px 12px 0 0;
-                max-height: 50vh;
+        /* ============ Driving mode: declutter ============ */
+        body.driving #sheet { transform: translateY(100%); pointer-events: none; }
+        body.driving .leaflet-control-zoom { display: none; }
+        body.driving .leaflet-control-attribution { display: none; }
+
+        /* ============ Active segment pulse ============ */
+        @keyframes seg-pulse {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ============ Responsive ============ */
+        @media (min-width: 768px) {
+            #sheet {
+                left: auto;
+                right: 16px;
+                bottom: 16px;
+                width: 340px;
+                border-radius: 16px;
+                max-height: 80vh;
+                transform: translateY(0);
+                box-shadow: 0 4px 24px var(--shadow);
             }
-            .controls-header { border-radius: 12px 12px 0 0; }
+            #sheet.hidden { transform: translateX(400px); }
+            #sheet.open { transform: translateY(0); }
+            .sheet-handle { display: none; }
+            #fab { bottom: 24px; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
-    <div id="alertBanner" style="display:none; position:fixed; top:0; left:0; right:0;
-        z-index:2000; background:linear-gradient(135deg,#ff6f00,#e65100); color:white; padding:14px 16px;
-        font-weight:600; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3);
-        text-align:center; cursor:pointer;" onclick="dismissAlert()">
-        <span id="alertText"></span>
-        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:20px">&times;</span>
+    <!-- HUD — persistent during GPS -->
+    <div id="hud">
+        <div class="hud-distance" id="hudDistance">--</div>
+        <div class="hud-label" id="hudLabel">Prossimo Tutor</div>
+        <div class="hud-highway" id="hudHighway"></div>
     </div>
 
-    <div class="controls">
-        <div class="controls-header" onclick="toggleControls()">
-            <span>Tutor Autostradali</span>
-            <span class="toggle" id="toggleIcon">▼</span>
+    <!-- Alert Banner -->
+    <div id="alertBanner" class="alert-start" onclick="dismissAlert()">
+        <span id="alertText"></span>
+        <span id="alertDismiss">&times;</span>
+    </div>
+
+    <!-- FAB — GPS toggle -->
+    <button id="fab" onclick="toggleCompass()" title="Attiva GPS">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+        </svg>
+    </button>
+
+    <!-- Bottom Sheet -->
+    <div id="sheet">
+        <div class="sheet-handle" id="sheetHandle"></div>
+        <div class="sheet-header">
+            <span class="sheet-title">Tutor Italia</span>
+            <span class="sheet-badge" id="totalCount">0</span>
         </div>
-        <div class="controls-body" id="controlsBody">
-            <div class="filter-group">
+        <div class="sheet-content">
+            <div class="filter-row">
                 <label>Autostrada</label>
                 <select id="filterHighway" onchange="applyFilters()">
                     <option value="all">Tutte le autostrade</option>
                 </select>
             </div>
-            <div class="filter-group">
+            <div class="filter-row">
                 <label>Tipo</label>
                 <select id="filterType" onchange="applyFilters()">
                     <option value="all">Tutti</option>
@@ -180,7 +438,7 @@
                     <option value="tutor_3.0">Tutor 3.0</option>
                 </select>
             </div>
-            <div class="filter-group">
+            <div class="filter-row">
                 <label>Direzione</label>
                 <select id="filterDirection" onchange="applyFilters()">
                     <option value="all">Tutte</option>
@@ -190,18 +448,13 @@
                     <option value="Ovest">Ovest</option>
                 </select>
             </div>
-            <div class="filter-group">
-                <button id="compassBtn" onclick="toggleCompass()">Attiva bussola</button>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                <button class="btn btn-secondary" onclick="downloadKML()">Scarica KML</button>
             </div>
-            <div id="compassStatus" style="display:none;font-size:12px;color:#1a73e8;margin-bottom:12px;font-weight:600;text-align:center;"></div>
-            <div class="filter-group">
-                <button class="secondary" onclick="resetFilters()">Reset filtri</button>
-            </div>
-            <div class="filter-group">
-                <button class="secondary" onclick="downloadKML()">Scarica KML</button>
-            </div>
-            <div class="stats">
-                Tratti visibili: <span id="visibleCount">0</span> / <span id="totalCount">0</span>
+            <div class="stats-bar">
+                <span>Visibili: <strong id="visibleCount">0</strong></span>
+                <span>Totali: <strong id="totalDisplay">0</strong></span>
             </div>
             <div class="legend" id="legend"></div>
         </div>
@@ -209,31 +462,20 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Colori per autostrada
+        // ============ Config ============
         const HIGHWAY_COLORS = {
-            'A1':  '#e53935', // rosso
-            'A4':  '#1e88e5', // blu
-            'A5':  '#6d4c41', // marrone
-            'A6':  '#8e24aa', // viola
-            'A7':  '#00897b', // teal
-            'A8':  '#f4511e', // arancio scuro
-            'A9':  '#3949ab', // indaco
-            'A10': '#c0ca33', // lime
-            'A11': '#00acc1', // ciano
-            'A13': '#7cb342', // verde
-            'A14': '#43a047', // verde scuro
-            'A16': '#ff8f00', // ambra
-            'A23': '#5c6bc0', // indaco chiaro
-            'A26': '#26a69a', // verde acqua
-            'A27': '#ef6c00', // arancio
-            'A28': '#78909c', // grigio-blu
-            'A30': '#d81b60', // rosa
-            'A56': '#9c27b0', // porpora
+            'A1':  '#e53935', 'A4':  '#1e88e5', 'A5':  '#6d4c41',
+            'A6':  '#8e24aa', 'A7':  '#00897b', 'A8':  '#f4511e',
+            'A9':  '#3949ab', 'A10': '#c0ca33', 'A11': '#00acc1',
+            'A13': '#7cb342', 'A14': '#43a047', 'A16': '#ff8f00',
+            'A23': '#5c6bc0', 'A26': '#26a69a', 'A27': '#ef6c00',
+            'A28': '#78909c', 'A30': '#d81b60', 'A56': '#9c27b0',
         };
 
         let map, allSegments = [], layers = [];
+        let metadata = null;
 
-        // Inizializza mappa
+        // ============ Map init ============
         map = L.map('map', {
             center: [42.5, 12.5],
             zoom: 6,
@@ -241,12 +483,11 @@
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors | Dati: Autostrade per l\'Italia, Polizia di Stato',
+            attribution: '&copy; OSM | Dati: Autostrade per l\'Italia, Polizia di Stato',
             maxZoom: 18
         }).addTo(map);
 
-        // Carica metadata (fonti per-segmento)
-        let metadata = null;
+        // ============ Data loading ============
         fetch('metadata.json')
             .then(r => r.ok ? r.json() : null)
             .then(meta => { metadata = meta; })
@@ -260,18 +501,15 @@
                 renderSegments(data);
                 buildLegend();
                 document.getElementById('totalCount').textContent = data.length;
+                document.getElementById('totalDisplay').textContent = data.length;
             })
-            .catch(err => {
-                console.error('Errore caricamento dati:', err);
-                alert('Errore: tutor_segments.json non trovato.\nEsegui prima: python scraper.py');
-            });
+            .catch(err => console.error('Errore caricamento dati:', err));
 
+        // ============ Filters ============
         function populateFilters() {
-            const highways = [...new Set(allSegments.map(s => s.highway))].sort((a, b) => {
-                const numA = parseInt(a.replace('A', ''));
-                const numB = parseInt(b.replace('A', ''));
-                return numA - numB;
-            });
+            const highways = [...new Set(allSegments.map(s => s.highway))].sort((a, b) =>
+                parseInt(a.replace('A', '')) - parseInt(b.replace('A', ''))
+            );
             const select = document.getElementById('filterHighway');
             highways.forEach(h => {
                 const count = allSegments.filter(s => s.highway === h).length;
@@ -280,97 +518,6 @@
                 opt.textContent = `${h} (${count} tratti)`;
                 select.appendChild(opt);
             });
-        }
-
-        function renderSegments(segments) {
-            // Rimuovi layer precedenti
-            layers.forEach(l => map.removeLayer(l));
-            layers = [];
-
-            segments.forEach(seg => {
-                if (!seg.start_coords || !seg.end_coords) return;
-
-                const color = HIGHWAY_COLORS[seg.highway] || '#999';
-                const isTutor30 = seg.type === 'tutor_3.0';
-
-                // Polyline — usa route_coords (tracciato reale) se disponibile
-                const routeCoords = seg.route_coords || [seg.start_coords, seg.end_coords];
-                const line = L.polyline(
-                    routeCoords,
-                    {
-                        color: color,
-                        weight: isTutor30 ? 5 : 4,
-                        opacity: 0.85,
-                        dashArray: isTutor30 ? '10, 6' : null,
-                    }
-                ).addTo(map);
-
-                // Popup sulla linea
-                const kmInfo = seg.start_km != null && seg.end_km != null
-                    ? `<div class="info-row"><span class="info-label">km</span><span class="info-value">${seg.start_km} → ${seg.end_km}</span></div>
-                       <div class="info-row"><span class="info-label">Lunghezza</span><span class="info-value">${Math.abs(seg.end_km - seg.start_km).toFixed(1)} km</span></div>`
-                    : '';
-
-                const typeLabel = isTutor30
-                    ? '<span class="badge tutor30">TUTOR 3.0</span>'
-                    : '<span class="badge standard">Standard</span>';
-
-                // Cerca info fonte per questo segmento
-                let sourceInfo = '';
-                if (metadata && metadata.segment_sources) {
-                    const segKey = `${seg.highway}|${seg.start_name}|${seg.end_name}`;
-                    const src = metadata.segment_sources[segKey];
-                    if (src) {
-                        const dateStr = src.date || '—';
-                        sourceInfo = `<div class="info-row" style="margin-top:4px;border-top:1px solid #e0e0e0;padding-top:4px"><span class="info-label">Fonte</span><span class="info-value" style="font-size:11px;color:#888">${src.source}<br>${dateStr}</span></div>`;
-                    }
-                }
-
-                line.bindPopup(`
-                    <div class="popup-content">
-                        <h3>${seg.highway} — Dir. ${seg.direction}</h3>
-                        <div class="info-row"><span class="info-label">Da</span><span class="info-value">${seg.start_name}</span></div>
-                        <div class="info-row"><span class="info-label">A</span><span class="info-value">${seg.end_name}</span></div>
-                        ${kmInfo}
-                        <div class="info-row"><span class="info-label">Tipo</span>${typeLabel}</div>
-                        ${sourceInfo}
-                    </div>
-                `, { maxWidth: 280 });
-
-                layers.push(line);
-
-                // Marker inizio (cerchio piccolo)
-                const startMarker = L.circleMarker(seg.start_coords, {
-                    radius: 4,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 1.5,
-                    fillOpacity: 1
-                }).addTo(map);
-
-                const startLabel = seg.start_km != null
-                    ? `<b>${seg.start_name}</b><br>km ${seg.start_km}`
-                    : `<b>${seg.start_name}</b>`;
-                startMarker.bindTooltip(startLabel, { direction: 'top', offset: [0, -5] });
-                layers.push(startMarker);
-
-                // Marker fine
-                const endMarker = L.circleMarker(seg.end_coords, {
-                    radius: 4,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 1.5,
-                    fillOpacity: 1
-                }).addTo(map);
-
-                const endLabel = seg.end_km != null
-                    ? `<b>${seg.end_name}</b><br>km ${seg.end_km}`
-                    : `<b>${seg.end_name}</b>`;
-                endMarker.bindTooltip(endLabel, { direction: 'top', offset: [0, -5] });
-                layers.push(endMarker);
-            });
-
-            document.getElementById('visibleCount').textContent = segments.filter(s => s.start_coords && s.end_coords).length;
         }
 
         function applyFilters() {
@@ -385,7 +532,6 @@
 
             renderSegments(filtered);
 
-            // Zoom sulla selezione se filtrata
             if (highway !== 'all' && filtered.length > 0) {
                 const bounds = L.latLngBounds(
                     filtered.flatMap(s => [s.start_coords, s.end_coords].filter(Boolean))
@@ -402,34 +548,114 @@
             map.setView([42.5, 12.5], 6);
         }
 
-        function toggleControls() {
-            const body = document.getElementById('controlsBody');
-            const icon = document.getElementById('toggleIcon');
-            body.classList.toggle('collapsed');
-            icon.textContent = body.classList.contains('collapsed') ? '▲' : '▼';
+        // ============ Render segments ============
+        function renderSegments(segments) {
+            layers.forEach(l => map.removeLayer(l));
+            layers = [];
+
+            segments.forEach(seg => {
+                if (!seg.start_coords || !seg.end_coords) return;
+
+                const color = HIGHWAY_COLORS[seg.highway] || '#999';
+                const isTutor30 = seg.type === 'tutor_3.0';
+
+                const routeCoords = seg.route_coords || [seg.start_coords, seg.end_coords];
+                const line = L.polyline(routeCoords, {
+                    color: color,
+                    weight: isTutor30 ? 5 : 4,
+                    opacity: 0.85,
+                    dashArray: isTutor30 ? '10, 6' : null,
+                }).addTo(map);
+
+                // Popup — glanceable, max 3 righe principali
+                const kmStr = (seg.start_km != null && seg.end_km != null)
+                    ? `km ${seg.start_km.toLocaleString('it-IT')} → ${seg.end_km.toLocaleString('it-IT')} (${Math.abs(seg.end_km - seg.start_km).toFixed(1).replace('.', ',')} km)`
+                    : '';
+                const badge = isTutor30
+                    ? '<span class="popup-badge t30">TUTOR 3.0</span>'
+                    : '<span class="popup-badge std">Standard</span>';
+
+                let sourceHtml = '';
+                if (metadata && metadata.segment_sources) {
+                    const key = `${seg.highway}|${seg.start_name}|${seg.end_name}`;
+                    const src = metadata.segment_sources[key];
+                    if (src) sourceHtml = `<div class="popup-source">${src.source} · ${src.date || '—'}</div>`;
+                }
+
+                line.bindPopup(`
+                    <div class="popup-content">
+                        <div class="popup-bar" style="background:${color}"></div>
+                        <div class="popup-title">${seg.highway} · Dir. ${seg.direction}</div>
+                        <div class="popup-row"><span class="popup-label">Tratto</span><span class="popup-value">${seg.start_name} → ${seg.end_name}</span></div>
+                        ${kmStr ? `<div class="popup-row"><span class="popup-label">km</span><span class="popup-value">${kmStr}</span></div>` : ''}
+                        <div class="popup-row"><span class="popup-label">Tipo</span>${badge}</div>
+                        ${sourceHtml}
+                    </div>
+                `, { maxWidth: 300 });
+
+                layers.push(line);
+
+                // Marker inizio/fine
+                [seg.start_coords, seg.end_coords].forEach((coords, idx) => {
+                    const m = L.circleMarker(coords, {
+                        radius: 4, fillColor: color, color: '#fff',
+                        weight: 1.5, fillOpacity: 1
+                    }).addTo(map);
+                    const name = idx === 0 ? seg.start_name : seg.end_name;
+                    const km = idx === 0 ? seg.start_km : seg.end_km;
+                    const label = km != null ? `<b>${name}</b><br>km ${km}` : `<b>${name}</b>`;
+                    m.bindTooltip(label, { direction: 'top', offset: [0, -5] });
+                    layers.push(m);
+                });
+            });
+
+            document.getElementById('visibleCount').textContent =
+                segments.filter(s => s.start_coords && s.end_coords).length;
         }
 
         function buildLegend() {
-            const highways = [...new Set(allSegments.map(s => s.highway))].sort((a, b) => {
-                return parseInt(a.replace('A', '')) - parseInt(b.replace('A', ''));
-            });
+            const highways = [...new Set(allSegments.map(s => s.highway))].sort((a, b) =>
+                parseInt(a.replace('A', '')) - parseInt(b.replace('A', ''))
+            );
             const legend = document.getElementById('legend');
-            legend.innerHTML = '<div style="font-size:12px;font-weight:600;color:#555;margin-bottom:6px">LEGENDA</div>';
-
+            let html = '<div class="legend-title">Legenda</div><div class="legend-grid">';
             highways.forEach(h => {
-                const color = HIGHWAY_COLORS[h] || '#999';
-                legend.innerHTML += `<div class="legend-item"><div class="legend-color" style="background:${color}"></div>${h}</div>`;
+                html += `<div class="legend-item"><div class="legend-dot" style="background:${HIGHWAY_COLORS[h] || '#999'}"></div>${h}</div>`;
             });
-            legend.innerHTML += `<div class="legend-item" style="margin-top:4px"><div class="legend-color dashed" style="color:#e53935"></div>Tutor 3.0</div>`;
+            html += '</div>';
+            legend.innerHTML = html;
         }
 
-        // === Bussola / GPS heading ===
+        // ============ Bottom Sheet ============
+        const sheet = document.getElementById('sheet');
+        const sheetHandle = document.getElementById('sheetHandle');
+        let sheetOpen = false;
+
+        sheetHandle.addEventListener('click', () => {
+            sheetOpen = !sheetOpen;
+            sheet.classList.toggle('open', sheetOpen);
+        });
+
+        // Touch drag
+        let sheetStartY = 0, sheetDragging = false;
+        sheetHandle.addEventListener('touchstart', e => {
+            sheetStartY = e.touches[0].clientY;
+            sheetDragging = true;
+        });
+        document.addEventListener('touchmove', e => {
+            if (!sheetDragging) return;
+            const dy = sheetStartY - e.touches[0].clientY;
+            if (dy > 40) { sheet.classList.add('open'); sheetOpen = true; sheetDragging = false; }
+            if (dy < -40) { sheet.classList.remove('open'); sheetOpen = false; sheetDragging = false; }
+        });
+        document.addEventListener('touchend', () => { sheetDragging = false; });
+
+        // ============ GPS / Compass ============
         let compassActive = false;
         let watchId = null;
         let userMarker = null;
 
         function headingToDirection(heading) {
-            // Converte heading (0-360) in direzione cardinale
             if (heading >= 315 || heading < 45) return 'Nord';
             if (heading >= 45 && heading < 135) return 'Est';
             if (heading >= 135 && heading < 225) return 'Sud';
@@ -438,96 +664,109 @@
         }
 
         function toggleCompass() {
-            if (compassActive) {
-                stopCompass();
-            } else {
-                startCompass();
-            }
+            compassActive ? stopCompass() : startCompass();
         }
 
         function startCompass() {
-            if (!navigator.geolocation) {
-                alert('Geolocalizzazione non supportata dal browser');
-                return;
-            }
+            if (!navigator.geolocation) { alert('GPS non supportato'); return; }
 
-            const btn = document.getElementById('compassBtn');
-            const status = document.getElementById('compassStatus');
-            btn.textContent = 'Disattiva bussola';
-            btn.style.background = '#c62828';
-            status.style.display = 'block';
-            status.textContent = 'Acquisizione GPS...';
+            const fab = document.getElementById('fab');
+            fab.classList.add('active');
             compassActive = true;
+
+            // Enter driving mode
+            document.body.classList.add('driving');
+            document.getElementById('hud').style.display = 'block';
+            sheet.classList.add('hidden');
 
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     const { latitude, longitude, heading } = pos.coords;
 
-                    // Aggiorna/crea marker posizione utente
                     if (userMarker) {
                         userMarker.setLatLng([latitude, longitude]);
                     } else {
                         userMarker = L.circleMarker([latitude, longitude], {
-                            radius: 8, fillColor: '#4285f4', color: '#fff',
+                            radius: 10, fillColor: '#4285f4', color: '#fff',
                             weight: 3, fillOpacity: 1
-                        }).addTo(map).bindTooltip('Tu sei qui', { direction: 'top' });
-                        map.setView([latitude, longitude], 11);
+                        }).addTo(map).bindTooltip('Tu', { permanent: true, direction: 'top', offset: [0, -12],
+                            className: 'user-tooltip' });
+                        map.setView([latitude, longitude], 13);
                     }
 
-                    // Check prossimità Tutor
                     checkProximity(latitude, longitude);
+                    updateHUD(latitude, longitude);
 
                     if (heading != null && !isNaN(heading)) {
                         const dir = headingToDirection(heading);
-                        status.textContent = `Direzione: ${dir} (${Math.round(heading)}°)`;
                         document.getElementById('filterDirection').value = dir;
                         applyFilters();
-                    } else {
-                        status.textContent = 'GPS attivo — muoviti per rilevare la direzione';
                     }
                 },
-                (err) => {
-                    const status = document.getElementById('compassStatus');
-                    status.textContent = 'Errore GPS: ' + err.message;
-                },
+                (err) => console.error('GPS error:', err),
                 { enableHighAccuracy: true, maximumAge: 5000 }
             );
         }
 
         function stopCompass() {
-            if (watchId != null) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-            if (userMarker) {
-                map.removeLayer(userMarker);
-                userMarker = null;
-            }
+            if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
             compassActive = false;
             alertedSegments.clear();
             activeSegments.clear();
             dismissAlert();
             if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-            const btn = document.getElementById('compassBtn');
-            const status = document.getElementById('compassStatus');
-            btn.textContent = 'Attiva bussola';
-            btn.style.background = '#1a73e8';
-            status.style.display = 'none';
+
+            const fab = document.getElementById('fab');
+            fab.classList.remove('active');
+
+            // Exit driving mode
+            document.body.classList.remove('driving');
+            document.getElementById('hud').style.display = 'none';
+            sheet.classList.remove('hidden');
+
             document.getElementById('filterDirection').value = 'all';
             applyFilters();
         }
 
-        // === Notifiche web ===
-        let notificationsEnabled = false;
-        if ('Notification' in window) {
-            if (Notification.permission === 'granted') {
-                notificationsEnabled = true;
-            } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(p => { notificationsEnabled = p === 'granted'; });
+        // ============ HUD update ============
+        function updateHUD(lat, lng) {
+            const hud = document.getElementById('hud');
+            let nearest = null, nearestDist = Infinity;
+
+            for (const seg of allSegments) {
+                if (!seg.start_coords) continue;
+                const d = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
+                if (d < nearestDist) { nearestDist = d; nearest = seg; }
+            }
+
+            const distEl = document.getElementById('hudDistance');
+            const labelEl = document.getElementById('hudLabel');
+            const hwEl = document.getElementById('hudHighway');
+
+            if (nearest && nearestDist < 100) {
+                if (nearestDist < 1) {
+                    distEl.textContent = `${Math.round(nearestDist * 1000)}m`;
+                } else {
+                    distEl.textContent = `${nearestDist.toFixed(1).replace('.', ',')}km`;
+                }
+                labelEl.textContent = `${nearest.start_name} → ${nearest.end_name}`;
+                hwEl.textContent = `${nearest.highway} · Dir. ${nearest.direction}`;
+
+                // HUD border color based on proximity
+                hud.className = '';
+                if (nearestDist < 0.8) hud.className = 'alert-inzone';
+                else if (nearestDist < 2) hud.className = 'alert-approaching';
+                else hud.className = '';
+            } else {
+                distEl.textContent = '--';
+                labelEl.textContent = 'Nessun Tutor vicino';
+                hwEl.textContent = '';
+                hud.className = '';
             }
         }
 
-        // === Text-to-Speech ===
+        // ============ Text-to-Speech ============
         function speak(text) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel();
@@ -535,23 +774,29 @@
             utt.lang = 'it-IT';
             utt.rate = 0.95;
             utt.volume = 1;
-            // Preferisci voce italiana
             const voices = window.speechSynthesis.getVoices();
             const itVoice = voices.find(v => v.lang.startsWith('it'));
             if (itVoice) utt.voice = itVoice;
             window.speechSynthesis.speak(utt);
         }
-        // Pre-carica voci (su alcuni browser serve)
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // === Alert di prossimità ===
+        // ============ Notifications ============
+        let notificationsEnabled = false;
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') notificationsEnabled = true;
+            else if (Notification.permission !== 'denied')
+                Notification.requestPermission().then(p => { notificationsEnabled = p === 'granted'; });
+        }
+
+        // ============ Proximity alerts ============
         const ALERT_RADIUS_KM = 2;
         const END_RADIUS_KM = 0.8;
         let alertedSegments = new Set();
-        let activeSegments = new Map(); // segId -> {seg, enteredAt}
+        let activeSegments = new Map();
         let alertTimeout = null;
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -565,7 +810,7 @@
         }
 
         function checkProximity(lat, lng) {
-            // 1. Controlla fine tratti attivi
+            // 1. Fine tratti attivi
             for (const [segId, info] of activeSegments) {
                 if (!info.seg.end_coords) continue;
                 const distEnd = haversineDistance(lat, lng, info.seg.end_coords[0], info.seg.end_coords[1]);
@@ -573,14 +818,11 @@
                     activeSegments.delete(segId);
                     showEndAlert(info.seg);
                 }
-                // Auto-rimuovi se troppo lontano (ha cambiato strada)
                 const distStart = haversineDistance(lat, lng, info.seg.start_coords[0], info.seg.start_coords[1]);
-                if (distStart > 15 && distEnd > 15) {
-                    activeSegments.delete(segId);
-                }
+                if (distStart > 15 && distEnd > 15) activeSegments.delete(segId);
             }
 
-            // 2. Controlla inizio nuovi tratti
+            // 2. Inizio nuovi tratti
             for (const seg of allSegments) {
                 if (!seg.start_coords) continue;
                 const dist = haversineDistance(lat, lng, seg.start_coords[0], seg.start_coords[1]);
@@ -596,35 +838,30 @@
 
         function showProximityAlert(seg, dist) {
             const tipo = seg.type === 'tutor_3.0' ? ' [3.0]' : '';
-            const distStr = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
-            const msg = `TUTOR ${seg.highway}${tipo} tra ${distStr} — ${seg.start_name} > ${seg.end_name}`;
+            const distStr = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1).replace('.', ',')}km`;
+            const msg = `TUTOR ${seg.highway}${tipo} tra ${distStr} — ${seg.start_name} → ${seg.end_name}`;
 
-            // Banner visivo
             const banner = document.getElementById('alertBanner');
             const text = document.getElementById('alertText');
             text.textContent = msg;
+            banner.className = 'alert-start';
             banner.style.display = 'block';
-            banner.style.background = 'linear-gradient(135deg,#ff6f00,#e65100)';
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             clearTimeout(alertTimeout);
             alertTimeout = setTimeout(dismissAlert, 10000);
 
-            // Voce: prima km, poi citta'
+            // Voce: distanza, km, citta'
             const distVoce = dist < 1 ? `${Math.round(dist * 1000)} metri` : `${dist.toFixed(1)} chilometri`;
             const tipoVoce = seg.type === 'tutor_3.0' ? ', tutor 3.0' : '';
             const kmVoce = (seg.start_km != null && seg.end_km != null)
                 ? `, dal chilometro ${Math.round(seg.start_km)} al chilometro ${Math.round(seg.end_km)}` : '';
             speak(`Attenzione, tutor ${seg.highway}${tipoVoce} tra ${distVoce}${kmVoce}, da ${seg.start_name} a ${seg.end_name}`);
 
-            // Notifica di sistema
             if (notificationsEnabled) {
                 try {
                     new Notification(`TUTOR tra ${distStr}`, {
-                        body: `${seg.highway} ${seg.start_name} > ${seg.end_name} Dir.${seg.direction}${tipo}`,
-                        icon: 'icons/icon-192x192.png',
-                        tag: 'tutor-alert',
-                        renotify: true,
-                        requireInteraction: false
+                        body: `${seg.highway} ${seg.start_name} → ${seg.end_name} Dir.${seg.direction}${tipo}`,
+                        icon: 'icons/icon-192x192.png', tag: 'tutor-alert', renotify: true
                     });
                 } catch (_) {}
             }
@@ -633,14 +870,12 @@
         function showEndAlert(seg) {
             const banner = document.getElementById('alertBanner');
             const text = document.getElementById('alertText');
-            text.textContent = `Tratto ${seg.highway} ${seg.start_name} > ${seg.end_name} terminato`;
+            text.textContent = `Tratto ${seg.highway} ${seg.start_name} → ${seg.end_name} terminato`;
+            banner.className = 'alert-end';
             banner.style.display = 'block';
-            banner.style.background = 'linear-gradient(135deg,#2e7d32,#1b5e20)';
             if (navigator.vibrate) navigator.vibrate([100]);
             clearTimeout(alertTimeout);
             alertTimeout = setTimeout(dismissAlert, 6000);
-
-            // Voce
             speak(`Tratto tutor ${seg.highway} terminato`);
         }
 
@@ -661,8 +896,8 @@
         // Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('SW registered, scope:', reg.scope))
-                .catch(err => console.error('SW registration failed:', err));
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.error('SW failed:', err));
         }
     </script>
 </body>
