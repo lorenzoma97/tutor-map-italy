@@ -1,14 +1,18 @@
 package io.github.lorenzoma97.tutormap
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.webkit.*
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -18,6 +22,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val PERMISSION_REQUEST_CODE = 100
+        const val OVERLAY_REQUEST_CODE = 101
         const val MAP_URL = "https://lorenzoma97.github.io/tutor-map-italy/"
     }
 
@@ -44,6 +49,9 @@ class MainActivity : AppCompatActivity() {
                 requestPermissionsAndStart()
             }
         }
+
+        // Controlla ottimizzazione batteria al primo avvio
+        checkBatteryOptimization()
     }
 
     private fun setupWebView() {
@@ -60,7 +68,6 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
-                // Tieni nella WebView solo il sito della mappa
                 return if (url.contains("lorenzoma97.github.io")) {
                     false
                 } else {
@@ -88,13 +95,16 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
 
         val missing = perms.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
         if (missing.isEmpty()) {
-            startMonitoring()
+            checkOverlayAndStart()
         } else {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERMISSION_REQUEST_CODE)
         }
@@ -110,11 +120,64 @@ class MainActivity : AppCompatActivity() {
             ) == PackageManager.PERMISSION_GRANTED
 
             if (locationGranted) {
-                startMonitoring()
+                checkOverlayAndStart()
             } else {
                 Toast.makeText(this, "Permesso GPS necessario per il monitoraggio", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private fun checkOverlayAndStart() {
+        if (!Settings.canDrawOverlays(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Overlay su altre app")
+                .setMessage("Per mostrare velocità e media sopra Google Maps, concedi il permesso di overlay.")
+                .setPositiveButton("Concedi") { _, _ ->
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivityForResult(intent, OVERLAY_REQUEST_CODE)
+                }
+                .setNegativeButton("Dopo") { _, _ -> startMonitoring() }
+                .show()
+        } else {
+            startMonitoring()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == OVERLAY_REQUEST_CODE) {
+            startMonitoring()
+        }
+    }
+
+    private fun checkBatteryOptimization() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
+
+        val prefs = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("battery_asked", false)) return
+
+        AlertDialog.Builder(this)
+            .setTitle("Ottimizzazione batteria")
+            .setMessage(
+                "Per funzionare in background mentre usi Google Maps, " +
+                "Tutor Map deve essere esclusa dall'ottimizzazione batteria.\n\n" +
+                "Senza questa impostazione, Android potrebbe chiudere il monitoraggio dopo pochi minuti."
+            )
+            .setPositiveButton("Disattiva ottimizzazione") { _, _ ->
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+            .setNegativeButton("Dopo") { _, _ ->
+                prefs.edit().putBoolean("battery_asked", true).apply()
+            }
+            .show()
     }
 
     private fun startMonitoring() {
@@ -137,6 +200,7 @@ class MainActivity : AppCompatActivity() {
         statusText.text = ""
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()

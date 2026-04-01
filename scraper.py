@@ -589,6 +589,14 @@ def use_hardcoded_data():
         key = (seg["highway"], seg["start_name"], seg["end_name"])
         seg["type"] = "tutor_3.0" if key in tutor30_names else "standard"
 
+    # Limiti di velocità per autostrada (default 130, eccezioni note)
+    speed_limit_overrides = {
+        "A56": 80,   # Tangenziale di Napoli
+        "A30": 100,  # Caserta-Salerno (tratti urbani)
+    }
+    for seg in segments:
+        seg["speed_limit"] = speed_limit_overrides.get(seg["highway"], 130)
+
     return segments
 
 
