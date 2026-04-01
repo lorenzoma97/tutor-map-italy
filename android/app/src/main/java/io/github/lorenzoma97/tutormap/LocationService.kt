@@ -4,6 +4,7 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -96,7 +97,7 @@ class LocationService : Service() {
         val type: String,
         val speedLimit: Int
     ) {
-        val id get() = "$highway-$startName-$direction"
+        val id get() = "$highway-$startName-$endName-$direction"
     }
 
     data class ActiveSegmentInfo(
