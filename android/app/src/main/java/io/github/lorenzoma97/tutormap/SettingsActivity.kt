@@ -1,6 +1,6 @@
 package io.github.lorenzoma97.tutormap
 
-import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -8,6 +8,8 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import androidx.appcompat.widget.Toolbar
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -18,21 +20,30 @@ class SettingsActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
 
+        // Root layout con toolbar + scroll
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+        }
+
+        // Toolbar con freccia indietro
+        val toolbar = Toolbar(this).apply {
+            setBackgroundColor(0xFF1a73e8.toInt())
+            setTitleTextColor(Color.WHITE)
+            title = "Impostazioni"
+            setNavigationIcon(android.R.drawable.ic_menu_revert)
+            setNavigationOnClickListener { finish() }
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
+        }
+        root.addView(toolbar)
+
         val scroll = ScrollView(this).apply {
-            setPadding(dp(24), dp(24), dp(24), dp(24))
+            setPadding(dp(24), dp(16), dp(24), dp(24))
         }
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-
-        // Titolo
-        layout.addView(TextView(this).apply {
-            text = "Impostazioni"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-            setTextColor(0xFF1a1a1a.toInt())
-            setPadding(0, 0, 0, dp(24))
-        })
 
         // Toggle switches
         val toggles = listOf(
@@ -65,7 +76,7 @@ class SettingsActivity : AppCompatActivity() {
                 setTextColor(0xFF888888.toInt())
             })
 
-            val switch = Switch(this).apply {
+            val switch = SwitchCompat(this).apply {
                 isChecked = prefs.getBoolean(key, true)
                 setOnCheckedChangeListener { _, checked ->
                     prefs.edit().putBoolean(key, checked).apply()
@@ -87,22 +98,15 @@ class SettingsActivity : AppCompatActivity() {
 
         // Info
         layout.addView(TextView(this).apply {
-            text = "\nLe impostazioni vengono applicate al prossimo avvio del monitoraggio."
+            text = "Le impostazioni vengono applicate al prossimo avvio del monitoraggio."
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFF999999.toInt())
             setPadding(0, dp(16), 0, 0)
         })
 
         scroll.addView(layout)
-        setContentView(scroll)
-
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Impostazioni"
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
+        root.addView(scroll)
+        setContentView(root)
     }
 
     private fun dp(value: Int): Int {

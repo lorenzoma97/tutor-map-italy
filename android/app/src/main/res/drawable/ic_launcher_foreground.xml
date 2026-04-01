@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Speed camera / radar icon centered in safe zone (24dp inset = 18 viewport units) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,27c-14.91,0 -27,12.09 -27,27s12.09,27 27,27 27,-12.09 27,-27 -12.09,-27 -27,-27zM54,75.6c-11.93,0 -21.6,-9.67 -21.6,-21.6S42.07,32.4 54,32.4 75.6,42.07 75.6,54 65.93,75.6 54,75.6z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,37.8c-8.94,0 -16.2,7.26 -16.2,16.2S45.06,70.2 54,70.2 70.2,62.94 70.2,54 62.94,37.8 54,37.8zM54,64.8c-5.96,0 -10.8,-4.84 -10.8,-10.8S48.04,43.2 54,43.2 64.8,48.04 64.8,54 59.96,64.8 54,64.8z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,48.6c-2.98,0 -5.4,2.42 -5.4,5.4s2.42,5.4 5.4,5.4 5.4,-2.42 5.4,-5.4 -2.42,-5.4 -5.4,-5.4z"/>
+</vector>

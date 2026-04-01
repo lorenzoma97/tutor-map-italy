@@ -25,18 +25,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Generate debug keystore
-        run: |
-          keytool -genkeypair \
-            -alias tutor-map \
-            -keypass android \
-            -keystore android/app/debug.keystore \
-            -storepass android \
-            -dname "CN=Tutor Map,O=lorenzoma97,C=IT" \
-            -validity 10000 \
-            -keyalg RSA \
-            -keysize 2048
-
       - name: Build debug APK
         working-directory: android
         run: |

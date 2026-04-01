@@ -16,6 +16,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity() {
@@ -61,6 +63,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<android.widget.ImageButton>(R.id.btnSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
+        // Controlla Google Play Services (necessario per FusedLocationProvider)
+        checkPlayServices()
 
         // Controlla ottimizzazione batteria al primo avvio
         checkBatteryOptimization()
@@ -165,6 +170,22 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == OVERLAY_REQUEST_CODE) {
             startMonitoring()
+        }
+    }
+
+    private fun checkPlayServices() {
+        val gapi = GoogleApiAvailability.getInstance()
+        val result = gapi.isGooglePlayServicesAvailable(this)
+        if (result != ConnectionResult.SUCCESS) {
+            if (gapi.isUserResolvableError(result)) {
+                gapi.getErrorDialog(this, result, 9000)?.show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Questo dispositivo non supporta Google Play Services.\nIl monitoraggio GPS potrebbe non funzionare.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
