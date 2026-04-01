@@ -5,17 +5,826 @@
     "primary": {
       "name": "Autostrade per l'Italia",
       "url": "https://www.autostrade.it/it/tecnologia-sicurezza/sicurezza/il-tutor",
-      "scraped_count": 0
+      "date": null
     },
     "secondary": {
       "name": "Sicurauto.it",
       "url": "https://www.sicurauto.it/news/traffico-e-viabilita/tutor-autostrade-mappa-dispositivi-attivi/",
-      "scraped_count": 200
+      "date": "2026-04-01"
     },
     "cross_check": {
       "name": "Polizia di Stato (PDF)",
-      "scraped_count": 15,
-      "pdf_date": "marzo-2025"
+      "date": "marzo-2025"
+    }
+  },
+  "segment_sources": {
+    "A1|Lodi|Milano Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Casale|Lodi": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Piacenza Nord|Casale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Piacenza Sud|Piacenza Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Fiorenzuola|Piacenza Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Fidenza|Fiorenzuola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All. A15 A1 N|Fidenza": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Campegine|Parma": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Reggio Emilia|Campegine": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All. A22 A1 N|Reggio Emilia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Modena Sud|Modena Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Milano Sud|Lodi": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Lodi|Casale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Casale|Piacenza Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Piacenza Nord|Piacenza Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All. A21 A1 S|Fiorenzuola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Fiorenzuola|Fidenza": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Fidenza|All A15 A1 N": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All A15 A1 S|Parma": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Parma|Campegine": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Campegine|Reggio Emilia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Modena Nord|Modena Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Modena Sud|All. A14 A1 N": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Santa Lucia Nord|Santa Lucia Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Firenzuola|Badia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Badia|Firenzuola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Valdichiana|Monte San Savino": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Chiusi|Valdichiana": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Orvieto|Fabro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Magliano|Orte": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Ponzano Romano|Magliano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All. Rac Rm-N A1 N|Ponzano Romano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Monte San Savino|Valdichiana": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Valdichiana|Chiusi": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Orte|Ponzano Romano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Ponzano Romano|All. Rac Rm-N A1 N": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All Rac RM-S A1 N|All. A24 A1 S": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Valmontone|All Rac RM-S A1s": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Colleferro|Valmontone": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Anagni|Colleferro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Pontecorvo|Ceprano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Cassino|Pontecorvo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|San Vittore|Cassino": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Caianello|San Vittore": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Sm Capuavetere|Capua": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Caserta Nord|Sm Capuavetere": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All. A24 A1 S|All Rac RM-S A1 N": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|All Rac RM-S A1 N|Colleferro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Colleferro|Anagni": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Anagni|Ferentino": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Frosinone|Ceprano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Pontecorvo|Cassino": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Cassino|San Vittore": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|San Vittore|Caianello": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Capua|Sm Capuavetere": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Sm Capuavetere|Caserta Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Castelnuovo Di Porto|Settebagni": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|San Cesareo|Monteporzio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A1|Monteporzio|San Cesareo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Trezzo|Dalmine": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Dalmine|Bergamo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Bergamo|Seriate": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Seriate|Grumello": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Grumello|Ponte Oglio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Ponte Oglio|Palazzolo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Palazzolo|Rovato": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Rovato|Ospitaletto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Cessalto|San Stino": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|San Stino|Portogruaro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Latisana|San Giorgio di Nogaro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|San Giorgio di Nogaro|Nodo A4/A23": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Villesse|Redipuglia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Capriate|Cavenago": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Dalmine|Capriate": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Seriate|Bergamo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Grumello|Seriate": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Ponte Oglio|Grumello": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Palazzolo|Ponte Oglio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Rovato|Palazzolo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Ospitaletto|Rovato": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|Villesse|Palmanova": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|San Giorgio di Nogaro|Latisana": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A4|San Stino|San Donà": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A5|Traforo Montebianco Sud|Traforo Montebianco Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A5|Traforo Montebianco Nord|Traforo Montebianco Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A6|Pione|Ceva Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A6|Altare|Zinola Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A7|Busalla|Ronco Scrivia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A7|Ronco Scrivia|Isola del Cantone": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A7|Busalla|Bolzaneto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A8|Castellanza|Busto Arsizio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A8|Busto Arsizio|Castellanza": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A8|Castellanza|Origgio Ovest": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A9|Turate|All. A9 A36": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A9|Lomazzo Sud|Lomazzo Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A9|Lomazzo Nord|Fino Mornasco": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A9|Turate|Saronno": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A9|Lomazzo Nord|Lomazzo Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A10|Celle Ligure|Albisola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A10|Albisola|Celle Ligure": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A11|Prato Est|Prato Ovest": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A11|Prato Ovest|Pistoia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A11|Prato Ovest|Prato Est": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A11|Pistoia|Prato Ovest": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A11|Montecatini|Pistoia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Arcoveggio|Bologna Interporto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Bologna Interporto|Altedo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Altedo|Ferrara Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Ferrara Sud|Ferrara Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Ferrara Nord|Occhiobello": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Occhiobello|Rovigo Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Rovigo Sud|Rovigo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Rovigo|Boara": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Boara|Monselice": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Monselice|Terme Euganee": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Terme Euganee|Padova Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Bologna Interporto|Arcoveggio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Altedo|Bologna Interporto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Ferrara Sud|Altedo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Ferrara Nord|Ferrara Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Rovigo Sud|Occhiobello": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Rovigo|Rovigo Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Terme Euganee|Monselice": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A13|Padova Zona Ind|Padova Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|All. Ramo Casalecchio|Borgo Panigale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Castel San Pietro|San Lazzaro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Imola|Castel San Pietro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|All. Ravenna Nord|Imola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Faenza|All. Ravenna Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Forli|Faenza": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Cesena Nord|Forli": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Valle del Rubicone|Cesena": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Bologna Fiera|San Lazzaro": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Castel San Pietro|Imola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Faenza|Forli": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Cesena|Valle del Rubicone": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Valle del Rubicone|Rimini Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Rimini Sud|Riccione": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Riccione|Cattolica": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Riccione|Rimini Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Cattolica|Riccione": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Pesaro|Cattolica": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Giulianova|Val Vibrata": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Pescara Ovest|All A14 A25 S": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Ortona|Pescara Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|San Severo|Poggio Imperiale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Foggia|San Severo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Foggia Zona Industriale|Foggia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Cerignola Est|Foggia Zona Industriale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|All. A16 A14 N|Cerignola Est": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Pescara Sud|Ortona": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Valdisangro|Vasto Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Poggio Imperiale|San Severo": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|San Severo|Foggia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Foggia|Foggia Zona Industriale": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Foggia Zona Industriale|Cerignola Est": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Cerignola Est|All. A16 A14 N": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|All. A16 A14 S|Canosa": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Canosa|Andria Barletta": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Canosa|All. A16 A14 S": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Andria Barletta|Canosa": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Bitonto|Molfetta": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Bari Nord|Bitonto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Bari Sud|Bari Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Andria Barletta|Trani": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Trani|Molfetta": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Molfetta|Bitonto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A14|Bitonto|Bari Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A16|Monteforte|Avellino Ovest": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A16|Monteforte|Baiano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A23|Udine Nord|Gemona": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A23|Gemona|Carnia": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A23|Gemona|Udine Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A23|Udine Sud|Nodo A23-A4": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A26|Ovada|Predosa": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A26|Predosa|Ovada": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A26|Masone|Broglio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A26|Masone|Massimorisso": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A27|Treviso Sud|Treviso Nord": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A27|Treviso Nord|All. SPV A27": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A27|Vittorio Veneto Nord|Fadalto": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A27|Treviso Sud|All. A4 A27": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A27|Treviso Nord|Treviso Sud": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A28|Azzano Decimo|Villotta": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Nola|All A30 A1": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Palma Campania|All A30 A16": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Sarno|Palma Campania": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Nocera Pagani|Sarno": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Salerno San Severino|Nocera Pagani": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|All A30 A1|Nola": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|All A30 A16|Palma Campania": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Palma Campania|Sarno": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Sarno|Nocera Pagani": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A30|Nocera Pagani|Castel San Giorgio": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Viadotto Corso Malta|Capodimonte": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Camaldoli|Vomero": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Fuorigrotta|Agnano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Solfatare|Arco Felice": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Arco Felice|Astroni": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Solfatare|Agnano": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Agnano|Fuorigrotta": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
+    },
+    "A56|Arenella|Capodimonte": {
+      "source": "Polizia di Stato (PDF)",
+      "date": "marzo-2025"
     }
   },
   "has_alerts": true,
