@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <PreferenceCategory app:title="@string/pref_cat_alerts">
+        <SwitchPreferenceCompat
+            app:key="sound"
+            app:title="@string/pref_sound_title"
+            app:summary="@string/pref_sound_summary"
+            app:defaultValue="true" />
+        <SwitchPreferenceCompat
+            app:key="overlay"
+            app:title="@string/pref_overlay_title"
+            app:summary="@string/pref_overlay_summary"
+            app:defaultValue="true" />
+        <SwitchPreferenceCompat
+            app:key="maps_pin"
+            app:title="@string/pref_maps_pin_title"
+            app:summary="@string/pref_maps_pin_summary"
+            app:defaultValue="true" />
+        <ListPreference
+            app:key="alert_distance"
+            app:title="@string/pref_alert_distance_title"
+            app:summary="@string/pref_alert_distance_summary"
+            app:entries="@array/alert_distance_entries"
+            app:entryValues="@array/alert_distance_values"
+            app:defaultValue="2" />
+        <ListPreference
+            app:key="speed_threshold"
+            app:title="@string/pref_speed_threshold_title"
+            app:summary="@string/pref_speed_threshold_summary"
+            app:entries="@array/speed_threshold_entries"
+            app:entryValues="@array/speed_threshold_values"
+            app:defaultValue="0" />
+    </PreferenceCategory>
+    <PreferenceCategory app:key="pref_cat_driving" app:title="@string/pref_cat_driving">
+        <SwitchPreferenceCompat
+            app:key="bt_autostart"
+            app:title="@string/pref_bt_title"
+            app:summary="@string/pref_bt_summary"
+            app:defaultValue="true" />
+    </PreferenceCategory>
+    <PreferenceCategory app:title="@string/pref_cat_appearance">
+        <ListPreference
+            app:key="dark_mode"
+            app:title="@string/pref_dark_mode_title"
+            app:summary="@string/pref_dark_mode_summary"
+            app:entries="@array/dark_mode_entries"
+            app:entryValues="@array/dark_mode_values"
+            app:defaultValue="system" />
+    </PreferenceCategory>
+</PreferenceScreen>

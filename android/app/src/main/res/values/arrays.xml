@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="alert_distance_entries">
+        <item>1 km</item>
+        <item>2 km</item>
+        <item>5 km</item>
+    </string-array>
+    <string-array name="alert_distance_values">
+        <item>1</item>
+        <item>2</item>
+        <item>5</item>
+    </string-array>
+
+    <string-array name="speed_threshold_entries">
+        <item>Disattivato</item>
+        <item>90 km/h</item>
+        <item>100 km/h</item>
+        <item>110 km/h</item>
+    </string-array>
+    <string-array name="speed_threshold_values">
+        <item>0</item>
+        <item>90</item>
+        <item>100</item>
+        <item>110</item>
+    </string-array>
+
+    <string-array name="dark_mode_entries">
+        <item>Automatico</item>
+        <item>Chiaro</item>
+        <item>Scuro</item>
+    </string-array>
+    <string-array name="dark_mode_values">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
+</resources>

@@ -12,14 +12,16 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.webkit.*
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,7 +37,17 @@ class MainActivity : AppCompatActivity() {
     private var webReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Dark mode
+        val darkPref = getSharedPreferences("tutor_prefs", MODE_PRIVATE).getString("dark_mode", "system")
+        AppCompatDelegate.setDefaultNightMode(when (darkPref) {
+            "light" -> AppCompatDelegate.MODE_NIGHT_NO
+            "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        })
+
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
@@ -58,8 +70,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<android.widget.ImageButton>(R.id.btnSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        findViewById<android.widget.ImageButton>(R.id.btnSettings).apply {
+            setImageResource(R.drawable.ic_settings_gear)
+            setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         }
 
         // Prefetch dati segmenti Tutor
@@ -73,21 +86,48 @@ class MainActivity : AppCompatActivity() {
 
         // Controlla ottimizzazione batteria al primo avvio
         checkBatteryOptimization()
+
+        // TTS availability check
+        var ttsCheck: android.speech.tts.TextToSpeech? = null
+        ttsCheck = android.speech.tts.TextToSpeech(this) { status ->
+            if (status != android.speech.tts.TextToSpeech.SUCCESS) {
+                runOnUiThread {
+                    Snackbar.make(findViewById(android.R.id.content),
+                        "Avvisi vocali non disponibili", Snackbar.LENGTH_LONG).show()
+                }
+            }
+            ttsCheck?.shutdown()
+            ttsCheck = null
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        monitoring = LocationService.isRunning
+        updateFabState()
     }
 
     private fun updateFabState() {
         if (monitoring) {
-            fab.text = "STOP"
-            fab.setIconResource(android.R.drawable.ic_media_pause)
-            fab.backgroundTintList = ColorStateList.valueOf(0xFFFF6D00.toInt())
-            fab.setTextColor(0xFFFFFFFF.toInt())
-            fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+            fab.shrink()
+            fab.postDelayed({
+                fab.text = "STOP"
+                fab.setIconResource(R.drawable.ic_stop)
+                fab.backgroundTintList = ColorStateList.valueOf(0xFFFF6D00.toInt())
+                fab.setTextColor(0xFFFFFFFF.toInt())
+                fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+                fab.extend()
+            }, 200)
         } else {
-            fab.text = "AVVIA"
-            fab.setIconResource(android.R.drawable.ic_media_play)
-            fab.backgroundTintList = ColorStateList.valueOf(0xFF34a853.toInt())
-            fab.setTextColor(0xFFFFFFFF.toInt())
-            fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+            fab.shrink()
+            fab.postDelayed({
+                fab.text = "AVVIA"
+                fab.setIconResource(R.drawable.ic_play)
+                fab.backgroundTintList = ColorStateList.valueOf(0xFF34a853.toInt())
+                fab.setTextColor(0xFFFFFFFF.toInt())
+                fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
+                fab.extend()
+            }, 200)
         }
     }
 
@@ -187,7 +227,12 @@ class MainActivity : AppCompatActivity() {
             if (locationGranted) {
                 checkOverlayAndStart()
             } else {
-                Toast.makeText(this, "Permesso GPS necessario per il monitoraggio", Toast.LENGTH_LONG).show()
+                Snackbar.make(findViewById(android.R.id.content), "Permesso GPS necessario", Snackbar.LENGTH_LONG)
+                    .setAction("Impostazioni") {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:$packageName")
+                        })
+                    }.show()
             }
         }
     }
@@ -226,7 +271,8 @@ class MainActivity : AppCompatActivity() {
         if (cacheTime > 0) {
             val daysOld = (System.currentTimeMillis() - cacheTime) / (1000 * 60 * 60 * 24)
             if (daysOld > 7) {
-                Toast.makeText(this, "Dati Tutor aggiornati $daysOld giorni fa", Toast.LENGTH_LONG).show()
+                Snackbar.make(findViewById(android.R.id.content),
+                    "Dati Tutor aggiornati $daysOld giorni fa", Snackbar.LENGTH_LONG).show()
             }
         }
 
@@ -245,7 +291,13 @@ class MainActivity : AppCompatActivity() {
                     .apply()
                 Log.i("TutorMap", "Prefetch segmenti completato")
             } catch (e: Exception) {
-                Log.w("TutorMap", "Prefetch segmenti fallito (verrà riprovato al monitoraggio)", e)
+                Log.w("TutorMap", "Prefetch segmenti fallito", e)
+                if (cacheTime > 0) {
+                    runOnUiThread {
+                        Snackbar.make(findViewById(android.R.id.content),
+                            "Modalità offline — dati dalla cache", Snackbar.LENGTH_LONG).show()
+                    }
+                }
             }
         }.start()
     }
@@ -277,11 +329,8 @@ class MainActivity : AppCompatActivity() {
             if (gapi.isUserResolvableError(result)) {
                 gapi.getErrorDialog(this, result, 9000)?.show()
             } else {
-                Toast.makeText(
-                    this,
-                    "Questo dispositivo non supporta Google Play Services.\nIl monitoraggio GPS potrebbe non funzionare.",
-                    Toast.LENGTH_LONG
-                ).show()
+                Snackbar.make(findViewById(android.R.id.content),
+                    "Google Play Services non disponibile", Snackbar.LENGTH_LONG).show()
             }
         }
     }
@@ -313,29 +362,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startMonitoring() {
-        // Avvia service background (overlay, voce, notifiche)
         val intent = Intent(this, LocationService::class.java)
         ContextCompat.startForegroundService(this, intent)
-        // Attiva GPS sulla mappa web (posizione, HUD, filtro direzione)
         if (webReady) {
             webView.evaluateJavascript("if(!compassActive) startCompass();", null)
         }
         monitoring = true
         updateFabState()
+        sendBroadcast(Intent("io.github.lorenzoma97.tutormap.WIDGET_UPDATE").setPackage(packageName))
     }
 
     private fun stopMonitoring() {
-        // Ferma service background
         val intent = Intent(this, LocationService::class.java).apply {
             action = LocationService.ACTION_STOP
         }
         startService(intent)
-        // Ferma GPS sulla mappa web
         if (webReady) {
             webView.evaluateJavascript("if(compassActive) stopCompass();", null)
         }
         monitoring = false
         updateFabState()
+        sendBroadcast(Intent("io.github.lorenzoma97.tutormap.WIDGET_UPDATE").setPackage(packageName))
+        // Trip summary dopo che il service salva i dati
+        fab.postDelayed({ showTripSummary() }, 1000)
+    }
+
+    private fun showTripSummary() {
+        val trip = TripHistoryManager.getLastTrip(this) ?: return
+        if (trip.durationMinutes < 1) return
+        val duration = if (trip.durationMinutes >= 60)
+            "${trip.durationMinutes / 60}h ${trip.durationMinutes % 60}min"
+        else "${trip.durationMinutes} min"
+        AlertDialog.Builder(this)
+            .setTitle("Riepilogo viaggio")
+            .setMessage("Durata: $duration\nDistanza: ${String.format("%.1f", trip.distanceKm)} km\nTutor attraversati: ${trip.tutorCount}\nVelocità media: ${trip.avgSpeed} km/h\nVelocità massima: ${trip.maxSpeed} km/h")
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     @Deprecated("Deprecated in Java")

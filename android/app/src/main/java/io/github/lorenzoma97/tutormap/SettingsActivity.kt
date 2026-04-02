@@ -1,117 +1,119 @@
 package io.github.lorenzoma97.tutormap
 
-import android.graphics.Color
 import android.os.Bundle
-import android.util.TypedValue
-import android.view.Gravity
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
-import androidx.appcompat.widget.Toolbar
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.preference.ListPreference
+import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.Preference
 
 class SettingsActivity : AppCompatActivity() {
-
-    private val PREFS = "tutor_prefs"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        // Simple layout: just a fragment container
+        val frameLayout = android.widget.FrameLayout(this).apply {
+            id = android.R.id.content
+        }
+        setContentView(frameLayout)
 
-        // Root layout con toolbar + scroll
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(android.R.id.content, SettingsFragment())
+                .commit()
         }
 
-        // Toolbar con freccia indietro
-        val toolbar = Toolbar(this).apply {
-            setBackgroundColor(0xFF1a73e8.toInt())
-            setTitleTextColor(Color.WHITE)
-            title = "Impostazioni"
-            setNavigationIcon(android.R.drawable.ic_menu_revert)
-            setNavigationOnClickListener { finish() }
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
-        }
-        root.addView(toolbar)
-
-        val scroll = ScrollView(this).apply {
-            setPadding(dp(24), dp(16), dp(24), dp(24))
-        }
-
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        // Toggle switches
-        val toggles = listOf(
-            Triple("sound", "Avvisi vocali", "Annuncio vocale all'ingresso e uscita dai tratti Tutor"),
-            Triple("overlay", "Overlay flottante", "Bollino con velocità e media sopra Google Maps"),
-            Triple("maps_pin", "Pin su Maps", "Mostra la fine del tratto Tutor su Google Maps all'ingresso"),
-            Triple("bt_autostart", "Auto-start Bluetooth", "Avvia automaticamente il monitoraggio quando ti connetti al Bluetooth dell'auto"),
-        )
-
-        for ((key, title, subtitle) in toggles) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(12), 0, dp(12))
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            }
-
-            val textCol = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-            }
-            textCol.addView(TextView(this).apply {
-                text = title
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setTextColor(0xFF1a1a1a.toInt())
-            })
-            textCol.addView(TextView(this).apply {
-                text = subtitle
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                setTextColor(0xFF888888.toInt())
-            })
-
-            val switch = SwitchCompat(this).apply {
-                isChecked = prefs.getBoolean(key, true)
-                setOnCheckedChangeListener { _, checked ->
-                    prefs.edit().putBoolean(key, checked).apply()
-                }
-            }
-
-            row.addView(textCol)
-            row.addView(switch)
-            layout.addView(row)
-
-            // Divider
-            layout.addView(android.view.View(this).apply {
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 1).apply {
-                    setMargins(0, dp(4), 0, dp(4))
-                }
-                setBackgroundColor(0xFFE0E0E0.toInt())
-            })
-        }
-
-        // Info
-        layout.addView(TextView(this).apply {
-            text = "Le impostazioni vengono applicate immediatamente."
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(0xFF999999.toInt())
-            setPadding(0, dp(16), 0, 0)
-        })
-
-        scroll.addView(layout)
-        root.addView(scroll)
-        setContentView(root)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
 
-    private fun dp(value: Int): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics
-        ).toInt()
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
+    }
+
+    class SettingsFragment : PreferenceFragmentCompat() {
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            preferenceManager.sharedPreferencesName = "tutor_prefs"
+            setPreferencesFromResource(R.xml.preferences, rootKey)
+
+            // Dark mode: apply immediately on change
+            findPreference<ListPreference>("dark_mode")?.setOnPreferenceChangeListener { _, newValue ->
+                applyDarkMode(newValue as String)
+                true
+            }
+
+            // Update summaries for list preferences to show current value
+            updateListSummary("alert_distance")
+            updateListSummary("speed_threshold")
+            updateListSummary("dark_mode")
+
+            // Add trip history preference
+            val tripPref = Preference(requireContext()).apply {
+                key = "trip_history_view"
+                title = "Storico viaggi"
+                summary = "Visualizza gli ultimi viaggi"
+                setOnPreferenceClickListener {
+                    showTripHistory()
+                    true
+                }
+            }
+            // Add to the driving category
+            findPreference<androidx.preference.PreferenceCategory>("pref_cat_driving")?.addPreference(tripPref)
+                ?: preferenceScreen.addPreference(tripPref)
+        }
+
+        private fun updateListSummary(key: String) {
+            val pref = findPreference<ListPreference>(key) ?: return
+            pref.summary = pref.entry
+            pref.setOnPreferenceChangeListener { preference, newValue ->
+                val listPref = preference as ListPreference
+                val index = listPref.findIndexOfValue(newValue as String)
+                if (index >= 0) {
+                    preference.summary = listPref.entries[index]
+                }
+                if (key == "dark_mode") applyDarkMode(newValue)
+                true
+            }
+        }
+
+        private fun applyDarkMode(value: String) {
+            val mode = when (value) {
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
+            AppCompatDelegate.setDefaultNightMode(mode)
+        }
+
+        private fun showTripHistory() {
+            val trips = TripHistoryManager.getAllTrips(requireContext())
+            if (trips.isEmpty()) {
+                com.google.android.material.snackbar.Snackbar.make(
+                    requireView(), "Nessun viaggio registrato", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
+                ).show()
+                return
+            }
+
+            val sb = StringBuilder()
+            val dateFormat = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.ITALIAN)
+            for (trip in trips.take(10)) {
+                val date = dateFormat.format(java.util.Date(trip.startTime))
+                val duration = trip.durationMinutes
+                sb.appendLine("$date — ${duration}min · ${String.format("%.1f", trip.distanceKm)}km · ${trip.tutorCount} tutor · media ${trip.avgSpeed} km/h")
+            }
+
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Ultimi viaggi")
+                .setMessage(sb.toString().trimEnd())
+                .setPositiveButton("OK", null)
+                .setNegativeButton("Cancella storico") { _, _ ->
+                    TripHistoryManager.clearHistory(requireContext())
+                    com.google.android.material.snackbar.Snackbar.make(
+                        requireView(), "Storico cancellato", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
+                    ).show()
+                }
+                .show()
+        }
     }
 }

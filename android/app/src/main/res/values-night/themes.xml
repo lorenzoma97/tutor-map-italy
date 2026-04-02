@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TutorMap" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#4da3ff</item>
+        <item name="colorPrimaryDark">#1a73e8</item>
+        <item name="colorAccent">#ff8f00</item>
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:navigationBarColor">#121212</item>
+        <item name="android:colorBackground">#121212</item>
+    </style>
+</resources>

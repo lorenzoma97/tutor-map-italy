@@ -5,4 +5,38 @@
     <string name="channel_description">Notifiche di prossimità ai Tutor autostradali</string>
     <string name="monitoring_active">Monitoraggio Tutor attivo</string>
     <string name="monitoring_description">GPS attivo in background per alert di prossimità</string>
+
+    <!-- Preference categories -->
+    <string name="pref_cat_alerts">Avvisi</string>
+    <string name="pref_cat_driving">Guida</string>
+    <string name="pref_cat_appearance">Aspetto</string>
+
+    <!-- Preferences -->
+    <string name="pref_sound_title">Avvisi vocali</string>
+    <string name="pref_sound_summary">Annuncio vocale all\'ingresso e uscita dai tratti Tutor</string>
+    <string name="pref_overlay_title">Overlay flottante</string>
+    <string name="pref_overlay_summary">Bollino con velocità e media sopra Google Maps</string>
+    <string name="pref_maps_pin_title">Pin su Maps</string>
+    <string name="pref_maps_pin_summary">Mostra la fine del tratto Tutor su Google Maps</string>
+    <string name="pref_alert_distance_title">Distanza di avviso</string>
+    <string name="pref_alert_distance_summary">Distanza alla quale ricevere l\'avviso</string>
+    <string name="pref_speed_threshold_title">Soglia di velocità</string>
+    <string name="pref_speed_threshold_summary">Avvisa solo sopra questa velocità</string>
+    <string name="pref_bt_title">Auto-start Bluetooth</string>
+    <string name="pref_bt_summary">Avvia il monitoraggio alla connessione Bluetooth dell\'auto</string>
+    <string name="pref_dark_mode_title">Tema</string>
+    <string name="pref_dark_mode_summary">Scegli il tema dell\'app</string>
+
+    <!-- Widget -->
+    <string name="widget_app_name">Tutor Map</string>
+    <string name="widget_status_ready">Pronto</string>
+    <string name="widget_toggle_desc">Avvia o ferma il monitoraggio</string>
+
+    <!-- Error messages -->
+    <string name="error_no_connection">Modalità offline — dati dalla cache</string>
+    <string name="error_tts_unavailable">Avvisi vocali non disponibili</string>
+    <string name="monitoring_paused">In pausa — veicolo fermo</string>
+
+    <!-- Trip summary -->
+    <string name="trip_summary_title">Riepilogo viaggio</string>
 </resources>

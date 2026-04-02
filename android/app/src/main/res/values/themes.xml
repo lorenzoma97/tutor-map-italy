@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.TutorMap" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.TutorMap" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#1a73e8</item>
         <item name="colorPrimaryDark">#1557b0</item>
         <item name="colorAccent">#ff6d00</item>
         <item name="android:statusBarColor">#1a73e8</item>
         <item name="android:navigationBarColor">#1a73e8</item>
+    </style>
+
+    <style name="Theme.TutorMap.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#1a73e8</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.TutorMap</item>
     </style>
 </resources>

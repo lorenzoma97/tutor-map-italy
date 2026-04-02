@@ -27,7 +27,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
+import android.content.res.Configuration
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -46,9 +48,13 @@ class LocationService : Service() {
         const val ALERT_COOLDOWN_MS = 5 * 60 * 1000L
         const val DATA_URL = "https://lorenzoma97.github.io/tutor-map-italy/tutor_segments.json"
         const val ACTION_STOP = "io.github.lorenzoma97.tutormap.STOP"
+        const val ACTION_WIDGET_TOGGLE = "io.github.lorenzoma97.tutormap.WIDGET_TOGGLE"
+        const val WIDGET_UPDATE_ACTION = "io.github.lorenzoma97.tutormap.WIDGET_UPDATE"
         const val POSITION_BUFFER_SIZE = 10
         const val MIN_TRAVEL_DISTANCE_M = 50.0
         const val MAX_BEARING_DIFF = 60.0
+        const val IDLE_TIMEOUT_MS = 5 * 60 * 1000L
+        const val IDLE_SPEED_THRESHOLD = 10.0
         @Volatile var isRunning = false
     }
 
@@ -82,6 +88,21 @@ class LocationService : Service() {
 
     // Debounce notifica persistente
     private var lastNotificationUpdate = 0L
+
+    // GPS adattivo
+    private var currentGpsMode = "far"
+
+    // Idle detection
+    private var lastMovingTime = 0L
+    private var isIdlePaused = false
+
+    // Trip statistics
+    private var tripStartTime = 0L
+    private var tripTotalDistance = 0.0
+    private var tripTutorCount = 0
+    private var tripMaxSpeed = 0.0
+    private var tripSpeedSum = 0.0
+    private var tripSpeedCount = 0
 
     // Audio focus
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -185,6 +206,9 @@ class LocationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_WIDGET_TOGGLE) {
+            if (isRunning) { stopSelf(); return START_NOT_STICKY }
+        }
 
         val notification = buildPersistentNotification("Monitoraggio Tutor attivo")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -193,8 +217,10 @@ class LocationService : Service() {
             startForeground(NOTIFICATION_PERSISTENT_ID, notification)
         }
         isRunning = true
+        tripStartTime = System.currentTimeMillis()
         startLocationUpdates()
         showOverlay()
+        sendBroadcast(Intent(WIDGET_UPDATE_ACTION).setPackage(packageName))
         return START_STICKY
     }
 
@@ -202,6 +228,8 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        saveTripData()
+        sendBroadcast(Intent(WIDGET_UPDATE_ACTION).setPackage(packageName))
         super.onDestroy()
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -211,6 +239,29 @@ class LocationService : Service() {
         tts = null
         audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         hideOverlay()
+    }
+
+    private fun saveTripData() {
+        if (tripStartTime <= 0) return
+        try {
+            val tripJson = JSONObject().apply {
+                put("start", tripStartTime)
+                put("end", System.currentTimeMillis())
+                put("distance_km", String.format("%.1f", tripTotalDistance).toDouble())
+                put("tutor_count", tripTutorCount)
+                put("avg_speed", if (tripSpeedCount > 0) (tripSpeedSum / tripSpeedCount).toInt() else 0)
+                put("max_speed", tripMaxSpeed.toInt())
+            }
+            val historyPrefs = getSharedPreferences("trip_history", MODE_PRIVATE)
+            historyPrefs.edit().putString("last_trip", tripJson.toString()).apply()
+            val existing = historyPrefs.getString("trips", "[]") ?: "[]"
+            val arr = try { JSONArray(existing) } catch (_: Exception) { JSONArray() }
+            arr.put(tripJson)
+            while (arr.length() > 50) arr.remove(0)
+            historyPrefs.edit().putString("trips", arr.toString()).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Errore salvataggio trip", e)
+        }
     }
 
     // ============ Notification Channels ============
@@ -246,7 +297,7 @@ class LocationService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_PERSISTENT)
             .setContentTitle("Tutor Map")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(openPending)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPending)
@@ -255,11 +306,53 @@ class LocationService : Service() {
 
     // ============ Location Updates ============
 
-    private fun startLocationUpdates() {
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
-            .setMinUpdateIntervalMillis(2000L)
-            .setMinUpdateDistanceMeters(20f)
+    private fun buildLocationRequest(): LocationRequest {
+        val (interval, minInterval, minDist) = when {
+            isIdlePaused -> Triple(30000L, 15000L, 100f)
+            currentGpsMode == "inside" -> Triple(2000L, 1000L, 10f)
+            currentGpsMode == "near" -> Triple(3000L, 2000L, 20f)
+            else -> Triple(10000L, 5000L, 50f) // far
+        }
+        return LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
+            .setMinUpdateIntervalMillis(minInterval)
+            .setMinUpdateDistanceMeters(minDist)
             .build()
+    }
+
+    private fun updateLocationRequest() {
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            fusedLocationClient.requestLocationUpdates(buildLocationRequest(), locationCallback, Looper.getMainLooper())
+            Log.i(TAG, "GPS mode: ${if (isIdlePaused) "idle" else currentGpsMode}")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permessi GPS mancanti", e)
+        }
+    }
+
+    private fun evaluateGpsMode(lat: Double, lng: Double) {
+        val newMode = when {
+            activeSegments.isNotEmpty() -> "inside"
+            distToNearestSegment(lat, lng) < 10.0 -> "near"
+            else -> "far"
+        }
+        if (newMode != currentGpsMode && !isIdlePaused) {
+            currentGpsMode = newMode
+            updateLocationRequest()
+        }
+    }
+
+    private fun distToNearestSegment(lat: Double, lng: Double): Double {
+        if (segments.isEmpty()) return Double.MAX_VALUE
+        return segments.minOf { seg ->
+            minOf(
+                haversineKm(lat, lng, seg.startLat, seg.startLng),
+                haversineKm(lat, lng, seg.endLat, seg.endLng)
+            )
+        }
+    }
+
+    private fun startLocationUpdates() {
+        val request = buildLocationRequest()
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
@@ -304,9 +397,33 @@ class LocationService : Service() {
                     info.lastLng = lng
                 }
 
+                // Trip statistics
+                if (lastLocationTime > 0) {
+                    val stepKm = haversineKm(lastLat, lastLng, lat, lng)
+                    tripTotalDistance += stepKm
+                    if (currentSpeedKmh > tripMaxSpeed) tripMaxSpeed = currentSpeedKmh
+                    tripSpeedSum += currentSpeedKmh
+                    tripSpeedCount++
+                }
+
+                // Idle detection
+                if (currentSpeedKmh > IDLE_SPEED_THRESHOLD) {
+                    lastMovingTime = now
+                    if (isIdlePaused) {
+                        isIdlePaused = false
+                        updateLocationRequest()
+                    }
+                } else if (lastMovingTime > 0 && now - lastMovingTime > IDLE_TIMEOUT_MS && !isIdlePaused) {
+                    isIdlePaused = true
+                    updateLocationRequest()
+                }
+
                 checkProximity(lat, lng)
                 updateOverlay(lat, lng)
                 updatePersistentNotification()
+
+                // Adaptive GPS mode
+                evaluateGpsMode(lat, lng)
             }
         }
 
@@ -322,6 +439,13 @@ class LocationService : Service() {
         val now = System.currentTimeMillis()
         if (now - lastNotificationUpdate < 5000) return
         lastNotificationUpdate = now
+
+        if (isIdlePaused) {
+            val notification = buildPersistentNotification("In pausa — veicolo fermo")
+            val mgr = getSystemService(NotificationManager::class.java)
+            mgr.notify(NOTIFICATION_PERSISTENT_ID, notification)
+            return
+        }
 
         val speedStr = if (gpsAcquired) "${currentSpeedKmh.toInt()} km/h" else "GPS in acquisizione..."
         val activeInfo = activeSegments.values.firstOrNull()
@@ -368,9 +492,13 @@ class LocationService : Service() {
         ended.forEach { activeSegments.remove(it) }
 
         // 2. Controlla inizio nuovi tratti (solo direzione giusta)
+        val alertRadius = getAlertRadius()
+        val speedThreshold = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+            .getString("speed_threshold", "0")?.toIntOrNull() ?: 0
         for (seg in segments) {
             val dist = haversineKm(lat, lng, seg.startLat, seg.startLng)
-            if (dist < ALERT_RADIUS_KM && isMatchingDirection(seg)) {
+            if (dist < alertRadius && isMatchingDirection(seg)) {
+                if (speedThreshold > 0 && currentSpeedKmh < speedThreshold) continue
                 val lastAlert = alertedSegments[seg.id]
                 if (lastAlert == null || now - lastAlert > ALERT_COOLDOWN_MS) {
                     alertedSegments[seg.id] = now
@@ -378,6 +506,7 @@ class LocationService : Service() {
                         seg = seg, entryTime = now,
                         entryLat = lat, entryLng = lng
                     )
+                    tripTutorCount++
                     showProximityAlert(seg, dist)
                     openMapsPin(seg)
                 }
@@ -405,10 +534,13 @@ class LocationService : Service() {
     private fun showEndAlert(info: ActiveSegmentInfo) {
         val avg = info.avgSpeedKmh().toInt()
         val seg = info.seg
-        val title = "Tratto terminato · Media: $avg km/h"
+        val overLimit = avg > seg.speedLimit
+        val suffix = if (overLimit) " \u26a0\ufe0f" else " \u2713"
+        val title = "Tratto terminato · Media: $avg km/h$suffix"
         val body = "${seg.highway} ${seg.startName} \u2192 ${seg.endName} · Limite: ${seg.speedLimit} km/h"
+        val vibration = if (overLimit) longArrayOf(0, 800, 200, 800) else longArrayOf(0, 200)
 
-        showNotification(title, body)
+        showNotification(title, body, vibration)
 
         val giudizio = when {
             avg > seg.speedLimit -> ", attenzione, media sopra il limite"
@@ -419,7 +551,7 @@ class LocationService : Service() {
         Log.i(TAG, "END: ${seg.id} avg=${avg} km/h")
     }
 
-    private fun showNotification(title: String, body: String) {
+    private fun showNotification(title: String, body: String, vibrationPattern: LongArray = longArrayOf(0, 500, 200, 500)) {
         val openIntent = Intent(this, MainActivity::class.java)
         val openPending = PendingIntent.getActivity(this, 1, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -427,12 +559,12 @@ class LocationService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(openPending)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setVibrate(vibrationPattern)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
 
@@ -453,14 +585,18 @@ class LocationService : Service() {
             TypedValue.COMPLEX_UNIT_DIP, px.toFloat(), resources.displayMetrics
         ).toInt() }
 
+        // Night mode detection
+        val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val isNight = nightMode == Configuration.UI_MODE_NIGHT_YES
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(220, 30, 30, 30))
+            setBackgroundColor(if (isNight) Color.argb(240, 15, 15, 15) else Color.argb(220, 30, 30, 30))
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
 
         val speedTv = TextView(this).apply {
-            textSize = 28f
+            textSize = if (isNight) 32f else 28f
             setTextColor(Color.WHITE)
             text = "-- km/h"
             gravity = Gravity.CENTER
@@ -765,6 +901,11 @@ class LocationService : Service() {
 
     private fun isSettingEnabled(key: String, default: Boolean = true): Boolean {
         return getSharedPreferences("tutor_prefs", MODE_PRIVATE).getBoolean(key, default)
+    }
+
+    private fun getAlertRadius(): Double {
+        return getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+            .getString("alert_distance", "2")?.toDoubleOrNull() ?: 2.0
     }
 
     // ============ Maps pin ============
