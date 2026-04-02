@@ -58,8 +58,8 @@ class LocationService : Service() {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     @Volatile private var segments: List<TutorSegment> = emptyList()
-    private val alertedSegments = mutableMapOf<String, Long>()
-    private val activeSegments = mutableMapOf<String, ActiveSegmentInfo>()
+    private val alertedSegments = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val activeSegments = java.util.concurrent.ConcurrentHashMap<String, ActiveSegmentInfo>()
     private val handler = Handler(Looper.getMainLooper())
     private val positionBuffer = ArrayDeque<LatLng>(POSITION_BUFFER_SIZE + 1)
 
@@ -74,9 +74,14 @@ class LocationService : Service() {
 
     // Speed
     private var currentSpeedKmh = 0.0
+    private val speedBuffer = ArrayDeque<Double>(4) // smoothing ultimi 3 valori
     private var lastLocationTime = 0L
     private var lastLat = 0.0
     private var lastLng = 0.0
+    private var gpsAcquired = false
+
+    // Debounce notifica persistente
+    private var lastNotificationUpdate = 0L
 
     // Audio focus
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -264,18 +269,28 @@ class LocationService : Service() {
                 val now = System.currentTimeMillis()
 
                 // Calcola velocità corrente dal GPS
+                var rawSpeed = 0.0
                 if (loc.hasSpeed()) {
-                    currentSpeedKmh = loc.speed.toDouble() * 3.6
+                    rawSpeed = loc.speed.toDouble() * 3.6
                 } else if (lastLocationTime > 0) {
                     val dt = (now - lastLocationTime) / 1000.0
-                    if (dt > 0) {
+                    if (dt > 0.5) {
                         val dist = haversineKm(lastLat, lastLng, lat, lng) * 1000
-                        currentSpeedKmh = (dist / dt) * 3.6
+                        rawSpeed = (dist / dt) * 3.6
                     }
                 }
+
+                // Speed smoothing: media mobile ultime 3 letture
+                if (lastLocationTime > 0) {
+                    speedBuffer.addLast(rawSpeed)
+                    while (speedBuffer.size > 3) speedBuffer.removeFirst()
+                    currentSpeedKmh = speedBuffer.average()
+                }
+
                 lastLat = lat
                 lastLng = lng
                 lastLocationTime = now
+                if (!gpsAcquired) gpsAcquired = true
 
                 // Feed position buffer per rilevamento direzione
                 positionBuffer.addLast(LatLng(lat, lng))
@@ -304,7 +319,11 @@ class LocationService : Service() {
     }
 
     private fun updatePersistentNotification() {
-        val speedStr = "${currentSpeedKmh.toInt()} km/h"
+        val now = System.currentTimeMillis()
+        if (now - lastNotificationUpdate < 5000) return
+        lastNotificationUpdate = now
+
+        val speedStr = if (gpsAcquired) "${currentSpeedKmh.toInt()} km/h" else "GPS in acquisizione..."
         val activeInfo = activeSegments.values.firstOrNull()
         val text = if (activeInfo != null) {
             val avg = activeInfo.avgSpeedKmh().toInt()
@@ -487,22 +506,32 @@ class LocationService : Service() {
             y = dp(100)
         }
 
-        // Drag to move
+        // Drag to move + double-tap to reset position
         var initX = 0
         var initY = 0
         var initTouchX = 0f
         var initTouchY = 0f
+        var lastTapTime = 0L
+        val defaultX = dp(16)
+        val defaultY = dp(100)
         layout.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     initX = params.x; initY = params.y
                     initTouchX = event.rawX; initTouchY = event.rawY
+                    // Double-tap detection
+                    val now = System.currentTimeMillis()
+                    if (now - lastTapTime < 300) {
+                        params.x = defaultX; params.y = defaultY
+                        try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
+                    }
+                    lastTapTime = now
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     params.x = initX - (event.rawX - initTouchX).toInt()
                     params.y = initY + (event.rawY - initTouchY).toInt()
-                    windowManager?.updateViewLayout(layout, params)
+                    try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
                     true
                 }
                 else -> false
@@ -537,8 +566,9 @@ class LocationService : Service() {
         if (!overlayVisible) return
 
         handler.post {
+            if (overlayView == null) return@post
             // Velocità corrente
-            overlaySpeed?.text = "${currentSpeedKmh.toInt()} km/h"
+            overlaySpeed?.text = if (gpsAcquired) "${currentSpeedKmh.toInt()} km/h" else "GPS..."
 
             val activeInfo = activeSegments.values.firstOrNull()
             if (activeInfo != null) {
@@ -608,7 +638,7 @@ class LocationService : Service() {
             if (cached.isNotEmpty()) {
                 segments = cached
                 Log.i(TAG, "Caricati ${cached.size} tratti da cache")
-                handler.post { updatePersistentNotification() }
+                if (isRunning) handler.post { updatePersistentNotification() }
             }
 
             // 2. Scarica da rete (aggiorna cache)
@@ -621,20 +651,27 @@ class LocationService : Service() {
                 conn.disconnect()
 
                 val list = parseSegments(json)
-                segments = list
-                Log.i(TAG, "Caricati ${list.size} tratti da rete")
+                if (list.isNotEmpty()) {
+                    segments = list
+                    Log.i(TAG, "Caricati ${list.size} tratti da rete")
 
-                // Salva cache
-                getSharedPreferences("tutor_cache", MODE_PRIVATE).edit()
-                    .putString("segments_json", json)
-                    .putLong("cache_time", System.currentTimeMillis())
-                    .apply()
+                    // Salva cache
+                    getSharedPreferences("tutor_cache", MODE_PRIVATE).edit()
+                        .putString("segments_json", json)
+                        .putLong("cache_time", System.currentTimeMillis())
+                        .apply()
 
-                handler.post { updatePersistentNotification() }
+                    if (isRunning) handler.post { updatePersistentNotification() }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Errore caricamento segmenti da rete", e)
                 if (segments.isEmpty()) {
                     Log.w(TAG, "Nessun dato disponibile (cache vuota + rete fallita)")
+                    if (isRunning) handler.post {
+                        val mgr = getSystemService(NotificationManager::class.java)
+                        mgr.notify(NOTIFICATION_PERSISTENT_ID,
+                            buildPersistentNotification("Dati Tutor non disponibili"))
+                    }
                 }
             }
         }.start()
@@ -652,7 +689,9 @@ class LocationService : Service() {
     }
 
     private fun parseSegments(json: String): List<TutorSegment> {
-        val arr = JSONArray(json)
+        val arr = try { JSONArray(json) } catch (e: Exception) {
+            Log.e(TAG, "JSON non valido", e); return emptyList()
+        }
         val list = mutableListOf<TutorSegment>()
         for (i in 0 until arr.length()) {
             val obj = arr.getJSONObject(i)
@@ -691,7 +730,7 @@ class LocationService : Service() {
     }
 
     private fun isMatchingDirection(seg: TutorSegment): Boolean {
-        val userBearing = getUserBearing() ?: return true
+        val userBearing = getUserBearing() ?: return false // Nessun bearing = non alertare
         val segBearing = calcBearing(seg.startLat, seg.startLng, seg.endLat, seg.endLng)
         return bearingDiff(userBearing, segBearing) < MAX_BEARING_DIFF
     }

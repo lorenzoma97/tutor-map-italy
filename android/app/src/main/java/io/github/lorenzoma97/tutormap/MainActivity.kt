@@ -11,9 +11,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import android.view.View
 import android.webkit.*
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -33,8 +31,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var fab: ExtendedFloatingActionButton
-    private lateinit var statusText: TextView
     private var monitoring = false
+    private var webReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +40,6 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         fab = findViewById(R.id.fabMonitor)
-        statusText = findViewById(R.id.statusText)
 
         setupWebView()
         webView.loadUrl(MAP_URL)
@@ -71,6 +68,9 @@ class MainActivity : AppCompatActivity() {
         // Controlla Google Play Services
         checkPlayServices()
 
+        // Onboarding primo avvio
+        showOnboardingIfNeeded()
+
         // Controlla ottimizzazione batteria al primo avvio
         checkBatteryOptimization()
     }
@@ -82,16 +82,12 @@ class MainActivity : AppCompatActivity() {
             fab.backgroundTintList = ColorStateList.valueOf(0xFFFF6D00.toInt())
             fab.setTextColor(0xFFFFFFFF.toInt())
             fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
-            statusText.text = "GPS attivo"
-            statusText.visibility = View.VISIBLE
         } else {
             fab.text = "AVVIA"
             fab.setIconResource(android.R.drawable.ic_media_play)
             fab.backgroundTintList = ColorStateList.valueOf(0xFF34a853.toInt())
             fab.setTextColor(0xFFFFFFFF.toInt())
             fab.iconTint = ColorStateList.valueOf(0xFFFFFFFF.toInt())
-            statusText.text = ""
-            statusText.visibility = View.GONE
         }
     }
 
@@ -101,7 +97,7 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             setGeolocationEnabled(true)
             cacheMode = WebSettings.LOAD_DEFAULT
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             useWideViewPort = true
             loadWithOverviewMode = true
         }
@@ -116,6 +112,32 @@ class MainActivity : AppCompatActivity() {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     } catch (_: Exception) {}
                     true
+                }
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                webReady = true
+                // Nasconde il FAB web (il FAB Android lo sostituisce)
+                view?.evaluateJavascript(
+                    "document.getElementById('fab').style.display='none';", null
+                )
+                // Se il monitoraggio era già attivo (ripristino), attiva anche la web
+                if (monitoring) {
+                    view?.evaluateJavascript(
+                        "if(!compassActive) startCompass();", null
+                    )
+                }
+            }
+
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?,
+                                         error: android.webkit.WebResourceError?) {
+                if (request?.isForMainFrame == true) {
+                    view?.loadData(
+                        "<html><body style='display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666'>" +
+                        "<div style='text-align:center'><h2>Mappa non disponibile</h2><p>Verifica la connessione internet</p></div></body></html>",
+                        "text/html", "UTF-8"
+                    )
                 }
             }
         }
@@ -198,6 +220,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prefetchSegments() {
+        // Controlla età cache e avvisa se vecchia
+        val prefs = getSharedPreferences("tutor_cache", MODE_PRIVATE)
+        val cacheTime = prefs.getLong("cache_time", 0)
+        if (cacheTime > 0) {
+            val daysOld = (System.currentTimeMillis() - cacheTime) / (1000 * 60 * 60 * 24)
+            if (daysOld > 7) {
+                Toast.makeText(this, "Dati Tutor aggiornati $daysOld giorni fa", Toast.LENGTH_LONG).show()
+            }
+        }
+
         Thread {
             try {
                 val url = java.net.URL(LocationService.DATA_URL)
@@ -216,6 +248,26 @@ class MainActivity : AppCompatActivity() {
                 Log.w("TutorMap", "Prefetch segmenti fallito (verrà riprovato al monitoraggio)", e)
             }
         }.start()
+    }
+
+    private fun showOnboardingIfNeeded() {
+        val prefs = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("onboarding_done", false)) return
+
+        AlertDialog.Builder(this)
+            .setTitle("Tutor Map")
+            .setMessage(
+                "Quest'app ti avvisa quando ti avvicini ai tratti Tutor in autostrada.\n\n" +
+                "1. Premi AVVIA\n" +
+                "2. Apri Google Maps per navigare\n" +
+                "3. Riceverai avvisi vocali e un overlay con velocità e media\n\n" +
+                "L'app funziona in background mentre usi Maps."
+            )
+            .setPositiveButton("Ho capito") { _, _ ->
+                prefs.edit().putBoolean("onboarding_done", true).apply()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun checkPlayServices() {
@@ -261,17 +313,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startMonitoring() {
+        // Avvia service background (overlay, voce, notifiche)
         val intent = Intent(this, LocationService::class.java)
         ContextCompat.startForegroundService(this, intent)
+        // Attiva GPS sulla mappa web (posizione, HUD, filtro direzione)
+        if (webReady) {
+            webView.evaluateJavascript("if(!compassActive) startCompass();", null)
+        }
         monitoring = true
         updateFabState()
     }
 
     private fun stopMonitoring() {
+        // Ferma service background
         val intent = Intent(this, LocationService::class.java).apply {
             action = LocationService.ACTION_STOP
         }
         startService(intent)
+        // Ferma GPS sulla mappa web
+        if (webReady) {
+            webView.evaluateJavascript("if(compassActive) stopCompass();", null)
+        }
         monitoring = false
         updateFabState()
     }

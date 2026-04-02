@@ -25,7 +25,7 @@
         android:src="@android:drawable/ic_menu_manage"
         android:tint="#1a73e8" />
 
-    <!-- Extended FAB, bottom-right -->
+    <!-- Single FAB: starts both web GPS + native background service -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fabMonitor"
         android:layout_width="wrap_content"
@@ -39,22 +39,5 @@
         app:icon="@android:drawable/ic_media_play"
         app:iconTint="#ffffff"
         app:elevation="6dp" />
-
-    <!-- Status text, bottom-left, subtle -->
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="36dp"
-        android:background="@drawable/bg_status_pill"
-        android:elevation="4dp"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="6dp"
-        android:text=""
-        android:textColor="#ffffff"
-        android:textSize="12sp"
-        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

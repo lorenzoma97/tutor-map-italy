@@ -98,7 +98,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Info
         layout.addView(TextView(this).apply {
-            text = "Le impostazioni vengono applicate al prossimo avvio del monitoraggio."
+            text = "Le impostazioni vengono applicate immediatamente."
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFF999999.toInt())
             setPadding(0, dp(16), 0, 0)
