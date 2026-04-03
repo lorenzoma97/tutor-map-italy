@@ -29,15 +29,19 @@
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fabMonitor"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="28dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
         android:text="AVVIA"
+        android:textSize="18sp"
         android:textColor="#ffffff"
         app:backgroundTint="#34a853"
         app:icon="@android:drawable/ic_media_play"
         app:iconTint="#ffffff"
-        app:elevation="6dp" />
+        app:iconSize="28dp"
+        app:cornerRadius="32dp"
+        app:elevation="8dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

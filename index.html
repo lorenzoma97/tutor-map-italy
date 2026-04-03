@@ -290,8 +290,33 @@
         }
         .stats-bar strong { color: var(--text); }
 
+        /* Legend toggle */
+        .legend-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding: 10px 0;
+            cursor: pointer;
+            border-top: 1px solid var(--border);
+            user-select: none;
+        }
+        .legend-toggle-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .legend-toggle-arrow {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        .legend-toggle-arrow.open { transform: rotate(90deg); }
+
         /* Legend */
-        .legend { margin-top: 12px; }
+        .legend { margin-top: 8px; overflow: hidden; transition: max-height 0.3s ease; }
+        .legend.collapsed { max-height: 0; }
+        .legend.expanded { max-height: 300px; }
         .legend-title {
             font-size: 11px;
             font-weight: 700;
@@ -449,14 +474,17 @@
                 </select>
             </div>
             <div class="btn-row">
-                <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
-                <button class="btn btn-secondary" onclick="downloadKML()">Scarica KML</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset filtri</button>
             </div>
             <div class="stats-bar">
                 <span>Visibili: <strong id="visibleCount">0</strong></span>
                 <span>Totali: <strong id="totalDisplay">0</strong></span>
             </div>
-            <div class="legend" id="legend"></div>
+            <div class="legend-toggle" onclick="toggleLegend()">
+                <span class="legend-toggle-label">Legenda colori autostrade</span>
+                <span class="legend-toggle-arrow" id="legendArrow">&#9654;</span>
+            </div>
+            <div class="legend collapsed" id="legend"></div>
         </div>
     </div>
 
@@ -939,13 +967,13 @@
             clearTimeout(alertTimeout);
         }
 
-        function downloadKML() {
-            const link = document.createElement('a');
-            link.href = 'tutor.kml';
-            link.download = 'tutor.kml';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        function toggleLegend() {
+            const legend = document.getElementById('legend');
+            const arrow = document.getElementById('legendArrow');
+            const isCollapsed = legend.classList.contains('collapsed');
+            legend.classList.toggle('collapsed', !isCollapsed);
+            legend.classList.toggle('expanded', isCollapsed);
+            arrow.classList.toggle('open', isCollapsed);
         }
 
         // Service Worker
