@@ -799,7 +799,9 @@ class LocationService : Service() {
 
                 overlayNextTutor?.text = "${activeInfo.seg.highway} · Fine tra $distStr"
                 overlayNextTutor?.setTextColor(overlayTextPrimary)
-                overlayInfo?.text = "${activeInfo.seg.startName} → ${activeInfo.seg.endName}"
+                val kmInfo = if ((activeInfo.seg.startKm ?: 0.0) > 0 || (activeInfo.seg.endKm ?: 0.0) > 0)
+                    " · km ${String.format("%.0f", activeInfo.seg.startKm)}-${String.format("%.0f", activeInfo.seg.endKm)}" else ""
+                overlayInfo?.text = "${activeInfo.seg.startName} → ${activeInfo.seg.endName}$kmInfo"
 
                 // Bordo colorato in base allo stato
                 overlayBgDrawable?.setStroke(strokeWidth, color)
@@ -823,7 +825,9 @@ class LocationService : Service() {
                                   else "${String.format("%.1f", nearestDist)}km"
                     overlayNextTutor?.text = "${nearestSeg.highway} tra $distStr"
                     overlayNextTutor?.setTextColor(overlayTextPrimary)
-                    overlayInfo?.text = "${nearestSeg.startName} → ${nearestSeg.endName}"
+                    val kmInfo = if ((nearestSeg.startKm ?: 0.0) > 0 || (nearestSeg.endKm ?: 0.0) > 0)
+                        " · km ${String.format("%.0f", nearestSeg.startKm)}-${String.format("%.0f", nearestSeg.endKm)}" else ""
+                    overlayInfo?.text = "${nearestSeg.startName} → ${nearestSeg.endName}$kmInfo"
                 } else {
                     overlayNextTutor?.text = "Nessun Tutor vicino"
                     overlayNextTutor?.setTextColor(overlayTextMuted)

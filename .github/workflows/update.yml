@@ -4,8 +4,6 @@ on:
   schedule:
     - cron: '0 6 * * 1,5'  # Ogni lunedì e venerdì alle 6:00 UTC (8:00 italiane)
   workflow_dispatch:  # Permette esecuzione manuale
-  push:
-    branches: [master]
 
 permissions:
   contents: write
@@ -26,6 +24,12 @@ jobs:
 
       - name: Installa dipendenze
         run: pip install -r requirements.txt
+
+      - name: Cache geometria OSM (Overpass)
+        uses: actions/cache@v4
+        with:
+          path: highway_cache
+          key: highway-cache-v1
 
       - name: Esegui scraper + validazione fonti
         run: python scraper.py
