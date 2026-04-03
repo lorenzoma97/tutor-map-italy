@@ -75,8 +75,15 @@ class LocationService : Service() {
     private var overlaySpeed: TextView? = null
     private var overlayAvg: TextView? = null
     private var overlayInfo: TextView? = null
+    private var overlayNextTutor: TextView? = null
+    private var overlayDivider: View? = null
     private var overlayProgress: SegmentProgressBar? = null
+    private var overlayBgDrawable: android.graphics.drawable.GradientDrawable? = null
     private var overlayVisible = false
+    private var overlayTextPrimary = Color.parseColor("#1a1a1a")
+    private var overlayTextSecondary = Color.parseColor("#666666")
+    private var overlayTextMuted = Color.parseColor("#999999")
+    private var overlayAccentColor = Color.parseColor("#1a73e8")
 
     // Speed
     private var currentSpeedKmh = 0.0
@@ -589,44 +596,80 @@ class LocationService : Service() {
         val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         val isNight = nightMode == Configuration.UI_MODE_NIGHT_YES
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(if (isNight) Color.argb(240, 15, 15, 15) else Color.argb(220, 30, 30, 30))
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+        // Theme colors
+        overlayTextPrimary = if (isNight) Color.WHITE else Color.parseColor("#1a1a1a")
+        overlayTextSecondary = if (isNight) Color.argb(255, 180, 180, 180) else Color.parseColor("#555555")
+        overlayTextMuted = if (isNight) Color.argb(200, 120, 120, 120) else Color.parseColor("#999999")
+        overlayAccentColor = Color.parseColor("#1a73e8")
+
+        val bgDrawable = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(16).toFloat()
+            setColor(if (isNight) Color.argb(245, 20, 20, 20) else Color.argb(250, 255, 255, 255))
+            setStroke(dp(2), overlayAccentColor)
         }
 
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = bgDrawable
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            clipToOutline = true
+            minimumWidth = dp(180)
+            elevation = dp(6).toFloat()
+        }
+
+        // --- Speed section ---
         val speedTv = TextView(this).apply {
-            textSize = if (isNight) 32f else 28f
-            setTextColor(Color.WHITE)
+            textSize = 28f
+            setTextColor(overlayTextPrimary)
             text = "-- km/h"
             gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
         }
 
         val avgTv = TextView(this).apply {
-            textSize = 16f
-            setTextColor(Color.argb(255, 180, 180, 180))
+            textSize = 13f
+            setTextColor(overlayTextSecondary)
             text = ""
             gravity = Gravity.CENTER
         }
 
         val progressBar = SegmentProgressBar(this).apply {
-            val h = dp(6)
+            val h = dp(5)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, h
-            ).apply { setMargins(0, dp(4), 0, dp(4)) }
+            ).apply { setMargins(0, dp(4), 0, dp(2)) }
             visibility = View.GONE
         }
 
+        // --- Divider ---
+        val divider = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
+            ).apply { setMargins(0, dp(8), 0, dp(8)) }
+            setBackgroundColor(if (isNight) Color.argb(40, 255, 255, 255) else Color.parseColor("#e0e0e0"))
+        }
+
+        // --- Tutor section ---
+        val nextTutorTv = TextView(this).apply {
+            textSize = 15f
+            setTextColor(overlayTextPrimary)
+            text = "Prossimo Tutor"
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }
+
         val infoTv = TextView(this).apply {
-            textSize = 12f
-            setTextColor(Color.argb(255, 150, 150, 150))
-            text = "Tutor Map"
+            textSize = 11f
+            setTextColor(overlayTextMuted)
+            text = ""
             gravity = Gravity.CENTER
         }
 
         layout.addView(speedTv)
         layout.addView(avgTv)
         layout.addView(progressBar)
+        layout.addView(divider)
+        layout.addView(nextTutorTv)
         layout.addView(infoTv)
 
         val params = WindowManager.LayoutParams(
@@ -680,7 +723,10 @@ class LocationService : Service() {
             overlaySpeed = speedTv
             overlayAvg = avgTv
             overlayProgress = progressBar
+            overlayDivider = divider
             overlayInfo = infoTv
+            overlayNextTutor = nextTutorTv
+            overlayBgDrawable = bgDrawable
             overlayVisible = true
             Log.i(TAG, "Overlay mostrato")
         } catch (e: Exception) {
@@ -694,6 +740,13 @@ class LocationService : Service() {
                 windowManager?.removeView(overlayView)
             } catch (_: Exception) {}
             overlayView = null
+            overlaySpeed = null
+            overlayAvg = null
+            overlayInfo = null
+            overlayNextTutor = null
+            overlayDivider = null
+            overlayProgress = null
+            overlayBgDrawable = null
             overlayVisible = false
         }
     }
@@ -701,13 +754,27 @@ class LocationService : Service() {
     private fun updateOverlay(lat: Double, lng: Double) {
         if (!overlayVisible) return
 
+        val strokeWidth = (2 * resources.displayMetrics.density).toInt()
+
         handler.post {
             if (overlayView == null) return@post
-            // Velocità corrente
-            overlaySpeed?.text = if (gpsAcquired) "${currentSpeedKmh.toInt()} km/h" else "GPS..."
+
+            // Velocita' corrente
+            if (!gpsAcquired) {
+                overlaySpeed?.text = "-- km/h"
+                overlaySpeed?.setTextColor(overlayTextPrimary)
+                overlayNextTutor?.text = "In attesa GPS..."
+                overlayNextTutor?.setTextColor(overlayTextMuted)
+                overlayInfo?.text = ""
+                overlayBgDrawable?.setStroke(strokeWidth, overlayAccentColor)
+                return@post
+            }
+
+            overlaySpeed?.text = "${currentSpeedKmh.toInt()} km/h"
 
             val activeInfo = activeSegments.values.firstOrNull()
             if (activeInfo != null) {
+                // --- In tratto Tutor ---
                 val avg = activeInfo.avgSpeedKmh().toInt()
                 val limit = activeInfo.seg.speedLimit
                 val distEnd = haversineKm(lat, lng, activeInfo.seg.endLat, activeInfo.seg.endLng)
@@ -715,36 +782,34 @@ class LocationService : Service() {
                     activeInfo.seg.endLat, activeInfo.seg.endLng)
                 val distStr = if (distEnd < 1) "${(distEnd * 1000).toInt()}m"
                               else "${String.format("%.1f", distEnd)}km"
-
-                // Progresso nel tratto: 100% quando arrivi alla fine
                 val progress = if (segLen > 0) (1.0 - distEnd / segLen).coerceIn(0.0, 1.0) else 0.0
 
                 // Colore in base a media vs limite
                 val color = when {
-                    avg > limit -> Color.rgb(255, 80, 80)       // rosso
-                    avg > limit - 10 -> Color.rgb(255, 180, 50) // arancione
-                    else -> Color.rgb(80, 220, 80)              // verde
+                    avg > limit -> Color.rgb(230, 57, 53)       // rosso
+                    avg > limit - 10 -> Color.rgb(255, 160, 0)  // arancione
+                    else -> Color.rgb(52, 168, 83)              // verde
                 }
+
                 overlaySpeed?.setTextColor(color)
                 overlayAvg?.text = "Media: $avg/$limit km/h"
                 overlayAvg?.setTextColor(color)
-
-                // Progress bar
                 overlayProgress?.visibility = View.VISIBLE
                 overlayProgress?.update(progress.toFloat(), color)
 
-                overlayInfo?.text = "${activeInfo.seg.highway} · Fine tra $distStr"
+                overlayNextTutor?.text = "${activeInfo.seg.highway} · Fine tra $distStr"
+                overlayNextTutor?.setTextColor(overlayTextPrimary)
+                overlayInfo?.text = "${activeInfo.seg.startName} → ${activeInfo.seg.endName}"
 
-                // Bordo colorato
-                overlayView?.setBackgroundColor(
-                    Color.argb(230, Color.red(color) / 4, Color.green(color) / 4, Color.blue(color) / 4)
-                )
+                // Bordo colorato in base allo stato
+                overlayBgDrawable?.setStroke(strokeWidth, color)
             } else {
-                overlaySpeed?.setTextColor(Color.WHITE)
+                // --- Fuori da tratti Tutor ---
+                overlaySpeed?.setTextColor(overlayTextPrimary)
                 overlayAvg?.text = ""
                 overlayProgress?.visibility = View.GONE
 
-                // Trova il tratto più vicino nella direzione giusta
+                // Trova il tratto piu' vicino nella direzione giusta
                 var nearestDist = Double.MAX_VALUE
                 var nearestSeg: TutorSegment? = null
                 for (seg in segments) {
@@ -756,11 +821,17 @@ class LocationService : Service() {
                 if (nearestSeg != null && nearestDist < 50) {
                     val distStr = if (nearestDist < 1) "${(nearestDist * 1000).toInt()}m"
                                   else "${String.format("%.1f", nearestDist)}km"
-                    overlayInfo?.text = "${nearestSeg.highway} tra $distStr"
+                    overlayNextTutor?.text = "${nearestSeg.highway} tra $distStr"
+                    overlayNextTutor?.setTextColor(overlayTextPrimary)
+                    overlayInfo?.text = "${nearestSeg.startName} → ${nearestSeg.endName}"
                 } else {
-                    overlayInfo?.text = "Nessun Tutor vicino"
+                    overlayNextTutor?.text = "Nessun Tutor vicino"
+                    overlayNextTutor?.setTextColor(overlayTextMuted)
+                    overlayInfo?.text = ""
                 }
-                overlayView?.setBackgroundColor(Color.argb(220, 30, 30, 30))
+
+                // Bordo blu standard
+                overlayBgDrawable?.setStroke(strokeWidth, overlayAccentColor)
             }
         }
     }
