@@ -185,7 +185,7 @@
             border-radius: 20px 20px 0 0;
             box-shadow: 0 -4px 20px var(--shadow);
             max-height: 70vh;
-            transform: translateY(calc(100% - 56px));
+            transform: translateY(calc(100% - 72px));
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
@@ -201,10 +201,10 @@
         }
         .sheet-handle::after {
             content: '';
-            width: 40px;
-            height: 4px;
+            width: 48px;
+            height: 5px;
             border-radius: 2px;
-            background: var(--border);
+            background: #bbbbbb;
         }
         .sheet-header {
             padding: 0 20px 12px;
@@ -345,6 +345,39 @@
             flex-shrink: 0;
         }
 
+        /* ============ Color/Tutor Toggle ============ */
+        .color-toggle-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-top: 1px solid var(--border); margin-top: 12px;
+        }
+        .color-toggle-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+        .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; cursor: pointer; inset: 0;
+            background: var(--border); border-radius: 26px; transition: 0.3s;
+        }
+        .toggle-slider::before {
+            content: ''; position: absolute; height: 20px; width: 20px;
+            left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+        /* ============ Sheet subtitle ============ */
+        .sheet-subtitle {
+            padding: 0 20px 8px; font-size: 12px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 4px;
+        }
+        .sheet-subtitle::after {
+            content: '\25B2'; font-size: 8px; animation: bounce-up 1.5s infinite;
+        }
+        @keyframes bounce-up {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-3px); opacity: 1; }
+        }
+        #sheet.open .sheet-subtitle { display: none; }
+
         /* ============ Popup ============ */
         .popup-content {
             min-width: 200px;
@@ -448,6 +481,7 @@
             <span class="sheet-title">Tutor Italia</span>
             <span class="sheet-badge" id="totalCount">0</span>
         </div>
+        <div class="sheet-subtitle">Scorri per filtri e dettagli</div>
         <div class="sheet-content">
             <div class="filter-row">
                 <label>Autostrada</label>
@@ -455,23 +489,12 @@
                     <option value="all">Tutte le autostrade</option>
                 </select>
             </div>
-            <div class="filter-row">
-                <label>Tipo</label>
-                <select id="filterType" onchange="applyFilters()">
-                    <option value="all">Tutti</option>
-                    <option value="standard">Standard</option>
-                    <option value="tutor_3.0">Tutor 3.0</option>
-                </select>
-            </div>
-            <div class="filter-row">
-                <label>Direzione</label>
-                <select id="filterDirection" onchange="applyFilters()">
-                    <option value="all">Tutte</option>
-                    <option value="Nord">Nord</option>
-                    <option value="Sud">Sud</option>
-                    <option value="Est">Est</option>
-                    <option value="Ovest">Ovest</option>
-                </select>
+            <div class="color-toggle-row" style="border-top: none; margin-top: 0;">
+                <label class="color-toggle-label">Solo Tutor 3.0</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="filterTutor30" onchange="applyFilters()">
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
             <div class="btn-row">
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset filtri</button>
@@ -480,7 +503,14 @@
                 <span>Visibili: <strong id="visibleCount">0</strong></span>
                 <span>Totali: <strong id="totalDisplay">0</strong></span>
             </div>
-            <div class="legend-toggle" onclick="toggleLegend()">
+            <div class="color-toggle-row">
+                <label class="color-toggle-label">Colori per autostrada</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="colorToggle" onchange="toggleColorMode()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="legend-toggle" onclick="toggleLegend()" style="display:none">
                 <span class="legend-toggle-label">Legenda colori autostrade</span>
                 <span class="legend-toggle-arrow" id="legendArrow">&#9654;</span>
             </div>
@@ -500,7 +530,9 @@
             'A28': '#78909c', 'A30': '#d81b60', 'A56': '#9c27b0',
         };
 
+        let useHighwayColors = false;
         let map, allSegments = [], layers = [];
+        let markerLayers = [];
         let metadata = null;
 
         // ============ Map init ============
@@ -550,13 +582,11 @@
 
         function applyFilters() {
             const highway = document.getElementById('filterHighway').value;
-            const type = document.getElementById('filterType').value;
-            const direction = document.getElementById('filterDirection').value;
+            const tutor30Only = document.getElementById('filterTutor30').checked;
 
             let filtered = allSegments;
             if (highway !== 'all') filtered = filtered.filter(s => s.highway === highway);
-            if (type !== 'all') filtered = filtered.filter(s => s.type === type);
-            if (direction !== 'all') filtered = filtered.filter(s => s.direction === direction);
+            if (tutor30Only) filtered = filtered.filter(s => s.type === 'tutor_3.0');
 
             renderSegments(filtered);
 
@@ -570,8 +600,7 @@
 
         function resetFilters() {
             document.getElementById('filterHighway').value = 'all';
-            document.getElementById('filterType').value = 'all';
-            document.getElementById('filterDirection').value = 'all';
+            document.getElementById('filterTutor30').checked = false;
             renderSegments(allSegments);
             map.setView([42.5, 12.5], 6);
         }
@@ -580,19 +609,20 @@
         function renderSegments(segments) {
             layers.forEach(l => map.removeLayer(l));
             layers = [];
+            markerLayers.forEach(l => map.removeLayer(l));
+            markerLayers = [];
 
             segments.forEach(seg => {
                 if (!seg.start_coords || !seg.end_coords) return;
 
-                const color = HIGHWAY_COLORS[seg.highway] || '#999';
+                const color = useHighwayColors ? (HIGHWAY_COLORS[seg.highway] || '#999') : '#e53935';
                 const isTutor30 = seg.type === 'tutor_3.0';
 
                 const routeCoords = seg.route_coords || [seg.start_coords, seg.end_coords];
                 const line = L.polyline(routeCoords, {
                     color: color,
-                    weight: isTutor30 ? 5 : 4,
-                    opacity: 0.85,
-                    dashArray: isTutor30 ? '10, 6' : null,
+                    weight: isTutor30 ? 7 : 5,
+                    opacity: 0.9,
                 }).addTo(map);
 
                 // Popup — glanceable, max 3 righe principali
@@ -623,22 +653,31 @@
 
                 layers.push(line);
 
+                // Invisible wider line for easier tapping
+                const hitLine = L.polyline(routeCoords, {
+                    color: 'transparent', weight: 24, opacity: 0
+                }).addTo(map);
+                hitLine.bindPopup(line.getPopup());
+                layers.push(hitLine);
+
                 // Marker inizio/fine
                 [seg.start_coords, seg.end_coords].forEach((coords, idx) => {
                     const m = L.circleMarker(coords, {
-                        radius: 4, fillColor: color, color: '#fff',
-                        weight: 1.5, fillOpacity: 1
+                        radius: 5, fillColor: color, color: '#fff',
+                        weight: 2, fillOpacity: 1
                     }).addTo(map);
                     const name = idx === 0 ? seg.start_name : seg.end_name;
                     const km = idx === 0 ? seg.start_km : seg.end_km;
                     const label = km != null ? `<b>${name}</b><br>km ${km}` : `<b>${name}</b>`;
                     m.bindTooltip(label, { direction: 'top', offset: [0, -5] });
-                    layers.push(m);
+                    markerLayers.push(m);
                 });
             });
 
             document.getElementById('visibleCount').textContent =
                 segments.filter(s => s.start_coords && s.end_coords).length;
+
+            updateMarkerVisibility();
         }
 
         function buildLegend() {
@@ -654,6 +693,30 @@
             legend.innerHTML = html;
         }
 
+        // ============ Zoom-dependent marker visibility ============
+        function updateMarkerVisibility() {
+            const zoom = map.getZoom();
+            const showMarkers = zoom >= 8;
+            markerLayers.forEach(m => {
+                if (showMarkers) { if (!map.hasLayer(m)) map.addLayer(m); }
+                else { if (map.hasLayer(m)) map.removeLayer(m); }
+            });
+        }
+        map.on('zoomend', updateMarkerVisibility);
+
+        // ============ Toggle color mode ============
+        function toggleColorMode() {
+            useHighwayColors = document.getElementById('colorToggle').checked;
+            applyFilters();
+            // Show/hide legend toggle based on color mode
+            document.querySelector('.legend-toggle').style.display = useHighwayColors ? 'flex' : 'none';
+            if (!useHighwayColors) {
+                document.getElementById('legend').classList.add('collapsed');
+                document.getElementById('legend').classList.remove('expanded');
+                document.getElementById('legendArrow').classList.remove('open');
+            }
+        }
+
         // ============ Bottom Sheet ============
         const sheet = document.getElementById('sheet');
         const sheetHandle = document.getElementById('sheetHandle');
@@ -662,6 +725,7 @@
         sheetHandle.addEventListener('click', () => {
             sheetOpen = !sheetOpen;
             sheet.classList.toggle('open', sheetOpen);
+            if (window.Android) try { window.Android.onSheetToggle(sheetOpen); } catch(e) {}
         });
 
         // Touch drag
@@ -673,8 +737,8 @@
         document.addEventListener('touchmove', e => {
             if (!sheetDragging) return;
             const dy = sheetStartY - e.touches[0].clientY;
-            if (dy > 40) { sheet.classList.add('open'); sheetOpen = true; sheetDragging = false; }
-            if (dy < -40) { sheet.classList.remove('open'); sheetOpen = false; sheetDragging = false; }
+            if (dy > 40) { sheet.classList.add('open'); sheetOpen = true; sheetDragging = false; if (window.Android) try { window.Android.onSheetToggle(sheetOpen); } catch(e) {} }
+            if (dy < -40) { sheet.classList.remove('open'); sheetOpen = false; sheetDragging = false; if (window.Android) try { window.Android.onSheetToggle(sheetOpen); } catch(e) {} }
         });
         document.addEventListener('touchend', () => { sheetDragging = false; });
 
@@ -769,14 +833,6 @@
 
                     checkProximity(latitude, longitude);
                     updateHUD(latitude, longitude);
-
-                    // Auto-filter direction based on trajectory
-                    const userBearing = getUserBearing();
-                    if (userBearing !== null) {
-                        const dir = headingToDirection(userBearing);
-                        document.getElementById('filterDirection').value = dir;
-                        applyFilters();
-                    }
                 },
                 (err) => console.error('GPS error:', err),
                 { enableHighAccuracy: true, maximumAge: 5000 }
@@ -800,7 +856,6 @@
             document.getElementById('hud').style.display = 'none';
             sheet.classList.remove('hidden');
 
-            document.getElementById('filterDirection').value = 'all';
             applyFilters();
         }
 

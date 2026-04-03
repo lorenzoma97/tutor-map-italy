@@ -142,6 +142,8 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
         }
 
+        webView.addJavascriptInterface(SheetBridge(), "Android")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
@@ -398,6 +400,43 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Durata: $duration\nDistanza: ${String.format("%.1f", trip.distanceKm)} km\nTutor attraversati: ${trip.tutorCount}\nVelocità media: ${trip.avgSpeed} km/h\nVelocità massima: ${trip.maxSpeed} km/h")
             .setPositiveButton("OK", null)
             .show()
+    }
+
+    private fun animateFab(sheetOpen: Boolean) {
+        if (sheetOpen) {
+            // Move FAB to top area (below status bar + some margin)
+            val targetY = dpToPx(48f) // 48dp from top
+            // Use fab.top (layout position, unaffected by translationY) to avoid
+            // stacking translations when called mid-animation or multiple times.
+            val layoutY = fab.top.toFloat()
+            if (layoutY > targetY) {
+                fab.animate()
+                    .translationY(-(layoutY - targetY))
+                    .setDuration(300)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+        } else {
+            // Return to original layout position
+            fab.animate()
+                .translationY(0f)
+                .setDuration(300)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    private fun dpToPx(dp: Float): Float {
+        return dp * resources.displayMetrics.density
+    }
+
+    inner class SheetBridge {
+        @android.webkit.JavascriptInterface
+        fun onSheetToggle(isOpen: Boolean) {
+            runOnUiThread {
+                animateFab(isOpen)
+            }
+        }
     }
 
     @Deprecated("Deprecated in Java")
