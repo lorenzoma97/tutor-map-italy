@@ -164,10 +164,13 @@ class MainActivity : AppCompatActivity() {
                 view?.evaluateJavascript(
                     "document.getElementById('fab').style.display='none';", null
                 )
-                // Se il monitoraggio era già attivo (ripristino), attiva anche la web
+                // Se il monitoraggio era già attivo (ripristino), attiva GPS web
+                // ma nascondi HUD/alert web (l'overlay nativo gestisce le info)
                 if (monitoring) {
                     view?.evaluateJavascript(
-                        "if(!compassActive) startCompass();", null
+                        "if(!compassActive) startCompass();" +
+                        "document.getElementById('hud').style.display='none';" +
+                        "document.getElementById('alertBanner').style.display='none';", null
                     )
                 }
             }
@@ -367,7 +370,12 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, LocationService::class.java)
         ContextCompat.startForegroundService(this, intent)
         if (webReady) {
-            webView.evaluateJavascript("if(!compassActive) startCompass();", null)
+            // Avvia GPS web per marker sulla mappa, ma nascondi HUD e alert web
+            // (le info vengono mostrate dall'overlay nativo di LocationService)
+            webView.evaluateJavascript(
+                "if(!compassActive) startCompass();" +
+                "document.getElementById('hud').style.display='none';" +
+                "document.getElementById('alertBanner').style.display='none';", null)
         }
         monitoring = true
         updateFabState()

@@ -583,6 +583,7 @@ class LocationService : Service() {
     // ============ Floating Overlay ============
 
     private fun showOverlay() {
+        hideOverlay() // Rimuovi overlay esistente per evitare duplicati
         if (!isSettingEnabled("overlay", true)) return
         if (!Settings.canDrawOverlays(this)) {
             Log.w(TAG, "Permesso overlay non concesso")
@@ -689,7 +690,7 @@ class LocationService : Service() {
         // Load persisted scale
         overlayScale = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
             .getFloat("overlay_scale", 1.0f).coerceIn(0.6f, 2.0f)
-        applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+        applyOverlayScale(layout)
 
         // Drag to move + double-tap to reset + pinch to resize
         var initX = 0
@@ -709,7 +710,7 @@ class LocationService : Service() {
                 }
                 override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
                     overlayScale = (overlayScale * detector.scaleFactor).coerceIn(0.6f, 2.0f)
-                    applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+                    applyOverlayScale(layout)
                     try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
                     return true
                 }
@@ -731,7 +732,7 @@ class LocationService : Service() {
                     if (now - lastTapTime < 300) {
                         params.x = defaultX; params.y = defaultY
                         overlayScale = 1.0f
-                        applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+                        applyOverlayScale(layout)
                         getSharedPreferences("tutor_prefs", MODE_PRIVATE).edit()
                             .putFloat("overlay_scale", 1.0f).apply()
                         try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
@@ -768,37 +769,31 @@ class LocationService : Service() {
         }
     }
 
-    private fun applyOverlayScale(
-        layout: LinearLayout, speedTv: TextView, avgTv: TextView,
-        nextTutorTv: TextView, infoTv: TextView, dp: (Int) -> Int
-    ) {
-        val s = overlayScale
-        speedTv.textSize = 28f * s
-        avgTv.textSize = 13f * s
-        nextTutorTv.textSize = 15f * s
-        infoTv.textSize = 11f * s
-        layout.setPadding(
-            (dp(16) * s).toInt(), (dp(12) * s).toInt(),
-            (dp(16) * s).toInt(), (dp(12) * s).toInt()
-        )
-        layout.minimumWidth = (dp(180) * s).toInt()
+    private fun applyOverlayScale(layout: LinearLayout) {
+        layout.scaleX = overlayScale
+        layout.scaleY = overlayScale
+        // Scala dal bordo superiore destro (l'overlay è ancorato lì)
+        layout.post {
+            layout.pivotX = layout.width.toFloat()
+            layout.pivotY = 0f
+        }
     }
 
     private fun hideOverlay() {
-        if (overlayVisible && overlayView != null) {
+        if (overlayView != null) {
             try {
                 windowManager?.removeView(overlayView)
             } catch (_: Exception) {}
-            overlayView = null
-            overlaySpeed = null
-            overlayAvg = null
-            overlayInfo = null
-            overlayNextTutor = null
-            overlayDivider = null
-            overlayProgress = null
-            overlayBgDrawable = null
-            overlayVisible = false
         }
+        overlayView = null
+        overlaySpeed = null
+        overlayAvg = null
+        overlayInfo = null
+        overlayNextTutor = null
+        overlayDivider = null
+        overlayProgress = null
+        overlayBgDrawable = null
+        overlayVisible = false
     }
 
     private fun updateOverlay(lat: Double, lng: Double) {
