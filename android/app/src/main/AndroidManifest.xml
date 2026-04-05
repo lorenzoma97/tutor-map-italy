@@ -32,11 +32,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:label="Impostazioni" />
-
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location"

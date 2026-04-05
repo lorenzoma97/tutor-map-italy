@@ -345,6 +345,45 @@
             flex-shrink: 0;
         }
 
+        /* ============ Direction Chips ============ */
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1.5px solid var(--border);
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            min-height: 36px;
+        }
+        .chip:active { opacity: 0.7; }
+        .chip.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .chip.auto {
+            background: transparent;
+            border-style: dashed;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .chip.auto.selected {
+            background: var(--primary);
+            color: white;
+            border-style: solid;
+        }
+
         /* ============ Color/Tutor Toggle ============ */
         .color-toggle-row {
             display: flex; justify-content: space-between; align-items: center;
@@ -496,6 +535,17 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div class="filter-row">
+                <label>Direzione</label>
+                <div class="chip-group" id="directionChips">
+                    <div class="chip selected" data-dir="all" onclick="setDirectionFilter('all')">Tutte</div>
+                    <div class="chip" data-dir="Nord" onclick="setDirectionFilter('Nord')">Nord</div>
+                    <div class="chip" data-dir="Sud" onclick="setDirectionFilter('Sud')">Sud</div>
+                    <div class="chip" data-dir="Est" onclick="setDirectionFilter('Est')">Est</div>
+                    <div class="chip" data-dir="Ovest" onclick="setDirectionFilter('Ovest')">Ovest</div>
+                    <div class="chip auto" data-dir="auto" onclick="setDirectionFilter('auto')">Auto</div>
+                </div>
+            </div>
             <div class="btn-row">
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset filtri</button>
             </div>
@@ -534,6 +584,8 @@
         let map, allSegments = [], layers = [];
         let markerLayers = [];
         let metadata = null;
+        let currentDirectionFilter = 'all'; // 'all', 'Nord', 'Sud', 'Est', 'Ovest', 'auto'
+        let autoDetectedDirection = null;
 
         // ============ Map init ============
         map = L.map('map', {
@@ -580,17 +632,38 @@
             });
         }
 
+        function setDirectionFilter(dir) {
+            currentDirectionFilter = dir;
+            document.querySelectorAll('#directionChips .chip').forEach(c => {
+                c.classList.toggle('selected', c.dataset.dir === dir);
+            });
+            applyFilters();
+        }
+
+        // Called externally from Android native code
+        function setDirectionFilterFromNative(dir) {
+            setDirectionFilter(dir);
+        }
+
+        function getEffectiveDirection() {
+            if (currentDirectionFilter === 'auto') return autoDetectedDirection;
+            if (currentDirectionFilter === 'all') return null;
+            return currentDirectionFilter;
+        }
+
         function applyFilters() {
             const highway = document.getElementById('filterHighway').value;
             const tutor30Only = document.getElementById('filterTutor30').checked;
+            const dir = getEffectiveDirection();
 
             let filtered = allSegments;
             if (highway !== 'all') filtered = filtered.filter(s => s.highway === highway);
             if (tutor30Only) filtered = filtered.filter(s => s.type === 'tutor_3.0');
+            if (dir) filtered = filtered.filter(s => s.direction === dir);
 
             renderSegments(filtered);
 
-            if (highway !== 'all' && filtered.length > 0) {
+            if ((highway !== 'all' || dir) && filtered.length > 0) {
                 const bounds = L.latLngBounds(
                     filtered.flatMap(s => [s.start_coords, s.end_coords].filter(Boolean))
                 );
@@ -601,6 +674,7 @@
         function resetFilters() {
             document.getElementById('filterHighway').value = 'all';
             document.getElementById('filterTutor30').checked = false;
+            setDirectionFilter('all');
             renderSegments(allSegments);
             map.setView([42.5, 12.5], 6);
         }
@@ -831,6 +905,18 @@
                         map.setView([latitude, longitude], 13);
                     }
 
+                    // Auto-detect direction for filter
+                    const bearing = getUserBearing();
+                    if (bearing !== null) {
+                        const detected = headingToDirection(bearing);
+                        if (detected && detected !== autoDetectedDirection) {
+                            autoDetectedDirection = detected;
+                            const autoChip = document.querySelector('#directionChips .chip[data-dir="auto"]');
+                            if (autoChip) autoChip.textContent = 'Auto · ' + detected;
+                            if (currentDirectionFilter === 'auto') applyFilters();
+                        }
+                    }
+
                     checkProximity(latitude, longitude);
                     updateHUD(latitude, longitude);
                 },
@@ -845,6 +931,9 @@
             compassActive = false;
             alertedSegments.clear();
             activeSegments.clear();
+            autoDetectedDirection = null;
+            const autoChip = document.querySelector('#directionChips .chip[data-dir="auto"]');
+            if (autoChip) autoChip.textContent = 'Auto';
             dismissAlert();
             if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 

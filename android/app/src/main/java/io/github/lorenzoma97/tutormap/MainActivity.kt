@@ -11,17 +11,28 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.view.View
 import android.webkit.*
+import android.widget.ArrayAdapter
+import android.widget.ImageButton
+import android.widget.Spinner
+import android.widget.TextView
+import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,6 +44,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var fab: ExtendedFloatingActionButton
+    private lateinit var drawerLayout: DrawerLayout
     private var monitoring = false
     private var webReady = false
 
@@ -52,6 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         fab = findViewById(R.id.fabMonitor)
+        drawerLayout = findViewById(R.id.drawerLayout)
 
         setupWebView()
         webView.loadUrl(MAP_URL)
@@ -70,10 +83,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<android.widget.ImageButton>(R.id.btnSettings).apply {
-            setImageResource(R.drawable.ic_settings_gear)
-            setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
+        // Hamburger menu button
+        findViewById<ImageButton>(R.id.btnMenu).setOnClickListener {
+            drawerLayout.openDrawer(GravityCompat.START)
         }
+
+        // Setup drawer contents
+        setupDrawer()
 
         // Prefetch dati segmenti Tutor
         prefetchSegments()
@@ -105,7 +121,212 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         monitoring = LocationService.isRunning
         updateFabState()
+        updateDrawerStats()
     }
+
+    // ============ Drawer Setup ============
+
+    private fun setupDrawer() {
+        val prefs = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+
+        // --- Filters: Direction chips ---
+        val chipGroup = findViewById<ChipGroup>(R.id.drawerDirectionChips)
+        chipGroup.setOnCheckedStateChangeListener { _, checkedIds ->
+            if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
+            val chip = findViewById<Chip>(checkedIds[0])
+            val dir = when (chip.id) {
+                R.id.chipNord -> "Nord"
+                R.id.chipSud -> "Sud"
+                R.id.chipEst -> "Est"
+                R.id.chipOvest -> "Ovest"
+                R.id.chipAuto -> "auto"
+                else -> "all"
+            }
+            if (webReady) {
+                webView.evaluateJavascript("setDirectionFilterFromNative('$dir');", null)
+            }
+        }
+
+        // --- Filters: Tutor 3.0 switch ---
+        val tutor30Switch = findViewById<SwitchMaterial>(R.id.drawerTutor30Switch)
+        tutor30Switch.setOnCheckedChangeListener { _, isChecked ->
+            if (webReady) {
+                webView.evaluateJavascript(
+                    "document.getElementById('filterTutor30').checked=$isChecked; applyFilters();", null)
+            }
+        }
+
+        // --- Filters: Highway spinner ---
+        setupHighwaySpinner()
+
+        // --- Settings: Dark mode ---
+        val darkModeSpinner = findViewById<Spinner>(R.id.drawerDarkModeSpinner)
+        val darkModeLabel = findViewById<TextView>(R.id.drawerDarkModeLabel)
+        val darkEntries = resources.getStringArray(R.array.dark_mode_entries)
+        val darkValues = resources.getStringArray(R.array.dark_mode_values)
+        darkModeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, darkEntries)
+        val currentDark = prefs.getString("dark_mode", "system") ?: "system"
+        val currentDarkIdx = darkValues.indexOf(currentDark).coerceAtLeast(0)
+        darkModeSpinner.setSelection(currentDarkIdx)
+        darkModeLabel.text = darkEntries[currentDarkIdx]
+        darkModeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            var initialized = false
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!initialized) { initialized = true; return }
+                val value = darkValues[pos]
+                prefs.edit().putString("dark_mode", value).apply()
+                darkModeLabel.text = darkEntries[pos]
+                AppCompatDelegate.setDefaultNightMode(when (value) {
+                    "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                    "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                })
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // --- Settings: Alert distance ---
+        val alertSpinner = findViewById<Spinner>(R.id.drawerAlertDistanceSpinner)
+        val alertEntries = resources.getStringArray(R.array.alert_distance_entries)
+        val alertValues = resources.getStringArray(R.array.alert_distance_values)
+        alertSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, alertEntries)
+        val currentAlert = prefs.getString("alert_distance", "2") ?: "2"
+        alertSpinner.setSelection(alertValues.indexOf(currentAlert).coerceAtLeast(0))
+        alertSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            var initialized = false
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!initialized) { initialized = true; return }
+                prefs.edit().putString("alert_distance", alertValues[pos]).apply()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // --- Settings: Speed threshold ---
+        val speedSpinner = findViewById<Spinner>(R.id.drawerSpeedThresholdSpinner)
+        val speedEntries = resources.getStringArray(R.array.speed_threshold_entries)
+        val speedValues = resources.getStringArray(R.array.speed_threshold_values)
+        speedSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, speedEntries)
+        val currentSpeed = prefs.getString("speed_threshold", "0") ?: "0"
+        speedSpinner.setSelection(speedValues.indexOf(currentSpeed).coerceAtLeast(0))
+        speedSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            var initialized = false
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!initialized) { initialized = true; return }
+                prefs.edit().putString("speed_threshold", speedValues[pos]).apply()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // --- Settings: Toggles ---
+        val soundSwitch = findViewById<SwitchMaterial>(R.id.drawerSoundSwitch)
+        soundSwitch.isChecked = prefs.getBoolean("sound", true)
+        soundSwitch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("sound", isChecked).apply()
+        }
+
+        val overlaySwitch = findViewById<SwitchMaterial>(R.id.drawerOverlaySwitch)
+        overlaySwitch.isChecked = prefs.getBoolean("overlay", true)
+        overlaySwitch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("overlay", isChecked).apply()
+        }
+
+        val mapsPinSwitch = findViewById<SwitchMaterial>(R.id.drawerMapsPinSwitch)
+        mapsPinSwitch.isChecked = prefs.getBoolean("maps_pin", true)
+        mapsPinSwitch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("maps_pin", isChecked).apply()
+        }
+
+        val btSwitch = findViewById<SwitchMaterial>(R.id.drawerBtSwitch)
+        btSwitch.isChecked = prefs.getBoolean("bt_autostart", true)
+        btSwitch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("bt_autostart", isChecked).apply()
+        }
+
+        // --- Trip history ---
+        findViewById<View>(R.id.drawerTripHistory).setOnClickListener {
+            drawerLayout.closeDrawers()
+            showTripHistory()
+        }
+
+        // --- Info ---
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            findViewById<TextView>(R.id.drawerVersion).text = "Tutor Map v${pInfo.versionName}"
+        } catch (_: Exception) {
+            findViewById<TextView>(R.id.drawerVersion).text = "Tutor Map"
+        }
+
+        updateDrawerStats()
+    }
+
+    private fun setupHighwaySpinner() {
+        val spinner = findViewById<Spinner>(R.id.drawerHighwaySpinner)
+        // We populate the highway list after the WebView fetches data
+        // For now, set a placeholder
+        val defaultList = listOf("Tutte le autostrade")
+        spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, defaultList)
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            var initialized = false
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!initialized) { initialized = true; return }
+                val selected = parent?.getItemAtPosition(pos)?.toString() ?: return
+                val value = if (selected == "Tutte le autostrade") "all"
+                            else selected.substringBefore(" (").trim()
+                if (webReady) {
+                    webView.evaluateJavascript(
+                        "document.getElementById('filterHighway').value='$value'; applyFilters();", null)
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun updateDrawerStats() {
+        val (trips, km, tutors) = TripHistoryManager.getWeeklyStats(this)
+        val tripCount = TripHistoryManager.getAllTrips(this).size
+        findViewById<TextView>(R.id.drawerTripCount)?.text = "$tripCount viaggi"
+        findViewById<TextView>(R.id.drawerWeeklyStats)?.text =
+            if (trips > 0) "Settimana: $trips viaggi · ${String.format("%.0f", km)} km · $tutors tutor"
+            else "Nessun viaggio questa settimana"
+
+        // Data age info
+        val cacheTime = getSharedPreferences("tutor_cache", MODE_PRIVATE).getLong("cache_time", 0)
+        val dataInfo = if (cacheTime > 0) {
+            val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.ITALIAN)
+            "Dati aggiornati: ${dateFormat.format(java.util.Date(cacheTime))}"
+        } else "Dati: in attesa di aggiornamento"
+        findViewById<TextView>(R.id.drawerDataInfo)?.text = dataInfo
+    }
+
+    private fun showTripHistory() {
+        val trips = TripHistoryManager.getAllTrips(this)
+        if (trips.isEmpty()) {
+            Snackbar.make(findViewById(android.R.id.content),
+                "Nessun viaggio registrato", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+
+        val sb = StringBuilder()
+        val dateFormat = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.ITALIAN)
+        for (trip in trips.take(10)) {
+            val date = dateFormat.format(java.util.Date(trip.startTime))
+            sb.appendLine("$date — ${trip.durationMinutes}min · ${String.format("%.1f", trip.distanceKm)}km · ${trip.tutorCount} tutor · media ${trip.avgSpeed} km/h")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Ultimi viaggi")
+            .setMessage(sb.toString().trimEnd())
+            .setPositiveButton("OK", null)
+            .setNegativeButton("Cancella storico") { _, _ ->
+                TripHistoryManager.clearHistory(this)
+                updateDrawerStats()
+                Snackbar.make(findViewById(android.R.id.content),
+                    "Storico cancellato", Snackbar.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    // ============ FAB State ============
 
     private fun updateFabState() {
         if (monitoring) {
@@ -130,6 +351,8 @@ class MainActivity : AppCompatActivity() {
             }, 200)
         }
     }
+
+    // ============ WebView Setup ============
 
     private fun setupWebView() {
         webView.settings.apply {
@@ -173,6 +396,8 @@ class MainActivity : AppCompatActivity() {
                         "document.getElementById('alertBanner').style.display='none';", null
                     )
                 }
+                // Populate highway spinner from web data
+                populateHighwaySpinnerFromWeb()
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?,
@@ -196,6 +421,30 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun populateHighwaySpinnerFromWeb() {
+        // Extract highway list from the WebView's loaded data
+        webView.evaluateJavascript(
+            "(function(){ var opts = document.getElementById('filterHighway').options; var r = []; for(var i=0;i<opts.length;i++) r.push(opts[i].text); return JSON.stringify(r); })()"
+        ) { result ->
+            try {
+                val json = result.trim('"').replace("\\\"", "\"")
+                val arr = org.json.JSONArray(json)
+                val items = mutableListOf<String>()
+                for (i in 0 until arr.length()) {
+                    items.add(arr.getString(i))
+                }
+                if (items.isNotEmpty()) {
+                    val spinner = findViewById<Spinner>(R.id.drawerHighwaySpinner)
+                    spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items)
+                }
+            } catch (e: Exception) {
+                Log.w("TutorMap", "Failed to populate highway spinner", e)
+            }
+        }
+    }
+
+    // ============ Permissions & Monitoring ============
 
     private fun requestPermissionsAndStart() {
         val perms = mutableListOf(
@@ -408,14 +657,14 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Durata: $duration\nDistanza: ${String.format("%.1f", trip.distanceKm)} km\nTutor attraversati: ${trip.tutorCount}\nVelocità media: ${trip.avgSpeed} km/h\nVelocità massima: ${trip.maxSpeed} km/h")
             .setPositiveButton("OK", null)
             .show()
+        updateDrawerStats()
     }
+
+    // ============ FAB animation for web sheet ============
 
     private fun animateFab(sheetOpen: Boolean) {
         if (sheetOpen) {
-            // Move FAB to top area (below status bar + some margin)
-            val targetY = dpToPx(48f) // 48dp from top
-            // Use fab.top (layout position, unaffected by translationY) to avoid
-            // stacking translations when called mid-animation or multiple times.
+            val targetY = dpToPx(48f)
             val layoutY = fab.top.toFloat()
             if (layoutY > targetY) {
                 fab.animate()
@@ -425,7 +674,6 @@ class MainActivity : AppCompatActivity() {
                     .start()
             }
         } else {
-            // Return to original layout position
             fab.animate()
                 .translationY(0f)
                 .setDuration(300)
@@ -449,7 +697,9 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START)
+        } else if (webView.canGoBack()) {
             webView.goBack()
         } else {
             super.onBackPressed()

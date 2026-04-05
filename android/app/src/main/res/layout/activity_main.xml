@@ -1,47 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
-    <WebView
-        android:id="@+id/webView"
+    <!-- Main content -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
 
-    <!-- Settings gear, top-right, floating over map -->
-    <ImageButton
-        android:id="@+id/btnSettings"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="40dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_circle_white"
-        android:contentDescription="Impostazioni"
-        android:elevation="4dp"
-        android:padding="10dp"
-        android:src="@android:drawable/ic_menu_manage"
-        android:tint="#1a73e8" />
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
-    <!-- Single FAB: starts both web GPS + native background service -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fabMonitor"
-        android:layout_width="wrap_content"
-        android:layout_height="76dp"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="100dp"
-        android:paddingStart="40dp"
-        android:paddingEnd="40dp"
-        android:text="AVVIA"
-        android:textSize="22sp"
-        android:textColor="#ffffff"
-        app:backgroundTint="#34a853"
-        app:icon="@android:drawable/ic_media_play"
-        app:iconTint="#ffffff"
-        app:iconSize="32dp"
-        app:cornerRadius="32dp"
-        app:elevation="8dp" />
+        <!-- Hamburger menu, top-left, floating over map -->
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="40dp"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/bg_circle_white"
+            android:contentDescription="Menu"
+            android:elevation="4dp"
+            android:padding="10dp"
+            android:src="@drawable/ic_menu_hamburger" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+        <!-- Single FAB: starts both web GPS + native background service -->
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fabMonitor"
+            android:layout_width="wrap_content"
+            android:layout_height="76dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="100dp"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:text="AVVIA"
+            android:textSize="22sp"
+            android:textColor="#ffffff"
+            app:backgroundTint="#34a853"
+            app:icon="@android:drawable/ic_media_play"
+            app:iconTint="#ffffff"
+            app:iconSize="32dp"
+            app:cornerRadius="32dp"
+            app:elevation="8dp" />
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- Drawer content -->
+    <include layout="@layout/drawer_content" />
+
+</androidx.drawerlayout.widget.DrawerLayout>
