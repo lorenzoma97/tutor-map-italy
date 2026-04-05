@@ -84,6 +84,7 @@ class LocationService : Service() {
     private var overlayTextSecondary = Color.parseColor("#666666")
     private var overlayTextMuted = Color.parseColor("#999999")
     private var overlayAccentColor = Color.parseColor("#1a73e8")
+    private var overlayScale = 1.0f
 
     // Speed
     private var currentSpeedKmh = 0.0
@@ -685,16 +686,43 @@ class LocationService : Service() {
             y = dp(100)
         }
 
-        // Drag to move + double-tap to reset position
+        // Load persisted scale
+        overlayScale = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
+            .getFloat("overlay_scale", 1.0f).coerceIn(0.6f, 2.0f)
+        applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+
+        // Drag to move + double-tap to reset + pinch to resize
         var initX = 0
         var initY = 0
         var initTouchX = 0f
         var initTouchY = 0f
         var lastTapTime = 0L
+        var isScaling = false
         val defaultX = dp(16)
         val defaultY = dp(100)
+
+        val scaleDetector = android.view.ScaleGestureDetector(this,
+            object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScaleBegin(detector: android.view.ScaleGestureDetector): Boolean {
+                    isScaling = true
+                    return true
+                }
+                override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                    overlayScale = (overlayScale * detector.scaleFactor).coerceIn(0.6f, 2.0f)
+                    applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+                    try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
+                    return true
+                }
+                override fun onScaleEnd(detector: android.view.ScaleGestureDetector) {
+                    isScaling = false
+                    getSharedPreferences("tutor_prefs", MODE_PRIVATE).edit()
+                        .putFloat("overlay_scale", overlayScale).apply()
+                }
+            })
+
         layout.setOnTouchListener { _, event ->
-            when (event.action) {
+            scaleDetector.onTouchEvent(event)
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     initX = params.x; initY = params.y
                     initTouchX = event.rawX; initTouchY = event.rawY
@@ -702,18 +730,24 @@ class LocationService : Service() {
                     val now = System.currentTimeMillis()
                     if (now - lastTapTime < 300) {
                         params.x = defaultX; params.y = defaultY
+                        overlayScale = 1.0f
+                        applyOverlayScale(layout, speedTv, avgTv, nextTutorTv, infoTv, dp)
+                        getSharedPreferences("tutor_prefs", MODE_PRIVATE).edit()
+                            .putFloat("overlay_scale", 1.0f).apply()
                         try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
                     }
                     lastTapTime = now
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = initX - (event.rawX - initTouchX).toInt()
-                    params.y = initY + (event.rawY - initTouchY).toInt()
-                    try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
+                    if (!isScaling && event.pointerCount == 1) {
+                        params.x = initX - (event.rawX - initTouchX).toInt()
+                        params.y = initY + (event.rawY - initTouchY).toInt()
+                        try { windowManager?.updateViewLayout(layout, params) } catch (_: Exception) {}
+                    }
                     true
                 }
-                else -> false
+                else -> true
             }
         }
 
@@ -732,6 +766,22 @@ class LocationService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Errore overlay", e)
         }
+    }
+
+    private fun applyOverlayScale(
+        layout: LinearLayout, speedTv: TextView, avgTv: TextView,
+        nextTutorTv: TextView, infoTv: TextView, dp: (Int) -> Int
+    ) {
+        val s = overlayScale
+        speedTv.textSize = 28f * s
+        avgTv.textSize = 13f * s
+        nextTutorTv.textSize = 15f * s
+        infoTv.textSize = 11f * s
+        layout.setPadding(
+            (dp(16) * s).toInt(), (dp(12) * s).toInt(),
+            (dp(16) * s).toInt(), (dp(12) * s).toInt()
+        )
+        layout.minimumWidth = (dp(180) * s).toInt()
     }
 
     private fun hideOverlay() {
