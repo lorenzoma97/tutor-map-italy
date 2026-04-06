@@ -48,6 +48,7 @@ class LocationService : Service() {
         const val ALERT_COOLDOWN_MS = 5 * 60 * 1000L
         const val DATA_URL = "https://lorenzoma97.github.io/tutor-map-italy/tutor_segments.json"
         const val ACTION_STOP = "io.github.lorenzoma97.tutormap.STOP"
+        const val ACTION_RESET_DIRECTION = "io.github.lorenzoma97.tutormap.RESET_DIRECTION"
         const val ACTION_WIDGET_TOGGLE = "io.github.lorenzoma97.tutormap.WIDGET_TOGGLE"
         const val WIDGET_UPDATE_ACTION = "io.github.lorenzoma97.tutormap.WIDGET_UPDATE"
         const val POSITION_BUFFER_SIZE = 10
@@ -61,6 +62,7 @@ class LocationService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var audioManager: AudioManager
+    private var wakeLock: PowerManager.WakeLock? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     @Volatile private var segments: List<TutorSegment> = emptyList()
@@ -79,6 +81,7 @@ class LocationService : Service() {
     private var overlayDivider: View? = null
     private var overlayProgress: SegmentProgressBar? = null
     private var overlayBgDrawable: android.graphics.drawable.GradientDrawable? = null
+    private var overlayStatusBar: TextView? = null
     private var overlayVisible = false
     private var overlayTextPrimary = Color.parseColor("#1a1a1a")
     private var overlayTextSecondary = Color.parseColor("#666666")
@@ -111,6 +114,21 @@ class LocationService : Service() {
     private var tripMaxSpeed = 0.0
     private var tripSpeedSum = 0.0
     private var tripSpeedCount = 0
+
+    // GPS watchdog
+    private var lastLocationUpdateTime = 0L
+    private val watchdogIntervalMs = 10_000L
+    private val watchdogRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning) return
+            val elapsed = System.currentTimeMillis() - lastLocationUpdateTime
+            if (lastLocationUpdateTime > 0 && elapsed > watchdogIntervalMs) {
+                Log.w(TAG, "GPS watchdog: nessun aggiornamento da ${elapsed}ms — re-requesting location")
+                updateLocationRequest()
+            }
+            handler.postDelayed(this, watchdogIntervalMs)
+        }
+    }
 
     // Audio focus
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -214,6 +232,10 @@ class LocationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_RESET_DIRECTION) {
+            resetDirection()
+            return START_STICKY
+        }
         if (intent?.action == ACTION_WIDGET_TOGGLE) {
             if (isRunning) { stopSelf(); return START_NOT_STICKY }
         }
@@ -226,7 +248,9 @@ class LocationService : Service() {
         }
         isRunning = true
         tripStartTime = System.currentTimeMillis()
+        acquireWakeLock()
         startLocationUpdates()
+        handler.postDelayed(watchdogRunnable, watchdogIntervalMs)
         showOverlay()
         sendBroadcast(Intent(WIDGET_UPDATE_ACTION).setPackage(packageName))
         return START_STICKY
@@ -236,17 +260,40 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        handler.removeCallbacks(watchdogRunnable)
         saveTripData()
         sendBroadcast(Intent(WIDGET_UPDATE_ACTION).setPackage(packageName))
         super.onDestroy()
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (_: Exception) {}
+        releaseWakeLock()
         tts?.stop()
         tts?.shutdown()
         tts = null
         audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         hideOverlay()
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock == null) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TutorMap::LocationWakeLock")
+        }
+        if (wakeLock?.isHeld != true) {
+            wakeLock?.acquire()
+            Log.i(TAG, "WakeLock acquired")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                Log.i(TAG, "WakeLock released")
+            }
+        } catch (_: Exception) {}
+        wakeLock = null
     }
 
     private fun saveTripData() {
@@ -299,6 +346,8 @@ class LocationService : Service() {
     private fun buildPersistentNotification(text: String): Notification {
         val stopIntent = Intent(this, LocationService::class.java).apply { action = ACTION_STOP }
         val stopPending = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        val resetDirIntent = Intent(this, LocationService::class.java).apply { action = ACTION_RESET_DIRECTION }
+        val resetDirPending = PendingIntent.getService(this, 3, resetDirIntent, PendingIntent.FLAG_IMMUTABLE)
         val openIntent = Intent(this, MainActivity::class.java)
         val openPending = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
 
@@ -308,6 +357,7 @@ class LocationService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(openPending)
+            .addAction(android.R.drawable.ic_menu_rotate, "Resetta direzione", resetDirPending)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPending)
             .build()
     }
@@ -318,12 +368,13 @@ class LocationService : Service() {
         val (interval, minInterval, minDist) = when {
             isIdlePaused -> Triple(30000L, 15000L, 100f)
             currentGpsMode == "inside" -> Triple(2000L, 1000L, 10f)
-            currentGpsMode == "near" -> Triple(3000L, 2000L, 20f)
+            currentGpsMode == "near" -> Triple(2000L, 1000L, 15f)
             else -> Triple(10000L, 5000L, 50f) // far
         }
         return LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
             .setMinUpdateIntervalMillis(minInterval)
             .setMinUpdateDistanceMeters(minDist)
+            .setWaitForAccurateLocation(false)
             .build()
     }
 
@@ -368,6 +419,7 @@ class LocationService : Service() {
                 val lat = loc.latitude
                 val lng = loc.longitude
                 val now = System.currentTimeMillis()
+                lastLocationUpdateTime = now
 
                 // Calcola velocità corrente dal GPS
                 var rawSpeed = 0.0
@@ -503,9 +555,26 @@ class LocationService : Service() {
         val alertRadius = getAlertRadius()
         val speedThreshold = getSharedPreferences("tutor_prefs", MODE_PRIVATE)
             .getString("speed_threshold", "0")?.toIntOrNull() ?: 0
+
+        // Predictive buffer: at highway speed, account for GPS update gaps.
+        // At 130 km/h ~ 36 m/s, a 2s GPS gap = 72m overshoot.
+        // Predict position 3s ahead to cover worst-case gap.
+        val speedMs = currentSpeedKmh / 3.6
+        val predictiveBufferKm = if (speedMs > 5) (speedMs * 3.0) / 1000.0 else 0.0
+
         for (seg in segments) {
-            val dist = haversineKm(lat, lng, seg.startLat, seg.startLng)
-            if (dist < alertRadius && isMatchingDirection(seg)) {
+            // Distance to segment start point
+            val distToStart = haversineKm(lat, lng, seg.startLat, seg.startLng)
+            // Also check distance to nearest point on the segment line (start->end),
+            // in case start_coords are imprecise casello/toll positions
+            val distToLine = pointToSegmentDistKm(lat, lng,
+                seg.startLat, seg.startLng, seg.endLat, seg.endLng)
+            val dist = minOf(distToStart, distToLine)
+
+            // Effective radius includes predictive buffer when traveling at speed
+            val effectiveRadius = alertRadius + predictiveBufferKm
+
+            if (dist < effectiveRadius && isMatchingDirection(seg)) {
                 if (speedThreshold > 0 && currentSpeedKmh < speedThreshold) continue
                 val lastAlert = alertedSegments[seg.id]
                 if (lastAlert == null || now - lastAlert > ALERT_COOLDOWN_MS) {
@@ -613,15 +682,34 @@ class LocationService : Service() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = bgDrawable
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(dp(16), dp(8), dp(16), dp(12))
             clipToOutline = true
             minimumWidth = dp(180)
             elevation = dp(6).toFloat()
         }
 
+        // --- Status bar (green = free zone, orange/red = active Tutor) ---
+        val statusBarBg = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(8).toFloat()
+            setColor(Color.rgb(52, 168, 83)) // verde di default
+        }
+        val statusBarTv = TextView(this).apply {
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            text = "Nessun Tutor"
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            background = statusBarBg
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, dp(8)) }
+        }
+
         // --- Speed section ---
         val speedTv = TextView(this).apply {
-            textSize = 28f
+            textSize = 48f
             setTextColor(overlayTextPrimary)
             text = "-- km/h"
             gravity = Gravity.CENTER
@@ -629,7 +717,7 @@ class LocationService : Service() {
         }
 
         val avgTv = TextView(this).apply {
-            textSize = 13f
+            textSize = 24f
             setTextColor(overlayTextSecondary)
             text = ""
             gravity = Gravity.CENTER
@@ -646,14 +734,14 @@ class LocationService : Service() {
         // --- Divider ---
         val divider = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(2)
             ).apply { setMargins(0, dp(8), 0, dp(8)) }
             setBackgroundColor(if (isNight) Color.argb(40, 255, 255, 255) else Color.parseColor("#e0e0e0"))
         }
 
         // --- Tutor section ---
         val nextTutorTv = TextView(this).apply {
-            textSize = 15f
+            textSize = 20f
             setTextColor(overlayTextPrimary)
             text = "Prossimo Tutor"
             gravity = Gravity.CENTER
@@ -661,12 +749,13 @@ class LocationService : Service() {
         }
 
         val infoTv = TextView(this).apply {
-            textSize = 11f
+            textSize = 18f
             setTextColor(overlayTextMuted)
             text = ""
             gravity = Gravity.CENTER
         }
 
+        layout.addView(statusBarTv)
         layout.addView(speedTv)
         layout.addView(avgTv)
         layout.addView(progressBar)
@@ -762,6 +851,7 @@ class LocationService : Service() {
             overlayInfo = infoTv
             overlayNextTutor = nextTutorTv
             overlayBgDrawable = bgDrawable
+            overlayStatusBar = statusBarTv
             overlayVisible = true
             Log.i(TAG, "Overlay mostrato")
         } catch (e: Exception) {
@@ -793,6 +883,7 @@ class LocationService : Service() {
         overlayDivider = null
         overlayProgress = null
         overlayBgDrawable = null
+        overlayStatusBar = null
         overlayVisible = false
     }
 
@@ -812,6 +903,8 @@ class LocationService : Service() {
                 overlayNextTutor?.setTextColor(overlayTextMuted)
                 overlayInfo?.text = ""
                 overlayBgDrawable?.setStroke(strokeWidth, overlayAccentColor)
+                (overlayStatusBar?.background as? android.graphics.drawable.GradientDrawable)?.setColor(overlayAccentColor)
+                overlayStatusBar?.text = "In attesa GPS..."
                 return@post
             }
 
@@ -850,6 +943,10 @@ class LocationService : Service() {
 
                 // Bordo colorato in base allo stato
                 overlayBgDrawable?.setStroke(strokeWidth, color)
+
+                // Status bar: mostra stato tratto attivo
+                (overlayStatusBar?.background as? android.graphics.drawable.GradientDrawable)?.setColor(color)
+                overlayStatusBar?.text = "TUTOR ATTIVO · ${activeInfo.seg.speedLimit} km/h"
             } else {
                 // --- Fuori da tratti Tutor ---
                 overlaySpeed?.setTextColor(overlayTextPrimary)
@@ -881,6 +978,10 @@ class LocationService : Service() {
 
                 // Bordo blu standard
                 overlayBgDrawable?.setStroke(strokeWidth, overlayAccentColor)
+
+                // Status bar: zona libera (verde)
+                (overlayStatusBar?.background as? android.graphics.drawable.GradientDrawable)?.setColor(Color.rgb(52, 168, 83))
+                overlayStatusBar?.text = "Nessun Tutor"
             }
         }
     }
@@ -976,6 +1077,15 @@ class LocationService : Service() {
 
     // ============ Direction Detection ============
 
+    private fun resetDirection() {
+        positionBuffer.clear()
+        speedBuffer.clear()
+        alertedSegments.clear()
+        activeSegments.clear()
+        Log.i(TAG, "Direzione resettata — ricalcolo in corso")
+        updatePersistentNotification()
+    }
+
     private fun getUserBearing(): Double? {
         if (positionBuffer.size < 2) return null
         val oldest = positionBuffer.first()
@@ -1015,6 +1125,24 @@ class LocationService : Service() {
     private fun bearingDiff(b1: Double, b2: Double): Double {
         val diff = abs(b1 - b2) % 360
         return if (diff > 180) 360 - diff else diff
+    }
+
+    /** Distance from point (pLat,pLng) to nearest point on segment A->B, in km. */
+    private fun pointToSegmentDistKm(
+        pLat: Double, pLng: Double,
+        aLat: Double, aLng: Double,
+        bLat: Double, bLng: Double
+    ): Double {
+        // Project point onto segment in simple lat/lng space (accurate enough at short range)
+        val dx = bLng - aLng
+        val dy = bLat - aLat
+        val lenSq = dx * dx + dy * dy
+        if (lenSq < 1e-12) return haversineKm(pLat, pLng, aLat, aLng)
+        val t = ((pLng - aLng) * dx + (pLat - aLat) * dy) / lenSq
+        val tc = t.coerceIn(0.0, 1.0)
+        val projLat = aLat + tc * dy
+        val projLng = aLng + tc * dx
+        return haversineKm(pLat, pLng, projLat, projLng)
     }
 
     // ============ Settings helper ============

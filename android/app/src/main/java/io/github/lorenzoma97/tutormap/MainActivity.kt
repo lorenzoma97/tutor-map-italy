@@ -151,8 +151,7 @@ class MainActivity : AppCompatActivity() {
         val tutor30Switch = findViewById<SwitchMaterial>(R.id.drawerTutor30Switch)
         tutor30Switch.setOnCheckedChangeListener { _, isChecked ->
             if (webReady) {
-                webView.evaluateJavascript(
-                    "document.getElementById('filterTutor30').checked=$isChecked; applyFilters();", null)
+                webView.evaluateJavascript("setTutor30Filter($isChecked);", null)
             }
         }
 
@@ -273,8 +272,7 @@ class MainActivity : AppCompatActivity() {
                 val value = if (selected == "Tutte le autostrade") "all"
                             else selected.substringBefore(" (").trim()
                 if (webReady) {
-                    webView.evaluateJavascript(
-                        "document.getElementById('filterHighway').value='$value'; applyFilters();", null)
+                    webView.evaluateJavascript("setHighwayFilter('$value');", null)
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -365,8 +363,6 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
         }
 
-        webView.addJavascriptInterface(SheetBridge(), "Android")
-
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
@@ -423,9 +419,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun populateHighwaySpinnerFromWeb() {
-        // Extract highway list from the WebView's loaded data
+        // Extract highway list directly from allSegments data
         webView.evaluateJavascript(
-            "(function(){ var opts = document.getElementById('filterHighway').options; var r = []; for(var i=0;i<opts.length;i++) r.push(opts[i].text); return JSON.stringify(r); })()"
+            "(function(){ var hws = [...new Set(allSegments.map(function(s){return s.highway}))].sort(function(a,b){return parseInt(a.replace('A',''))-parseInt(b.replace('A',''))}); var r = ['Tutte le autostrade']; hws.forEach(function(h){ var c = allSegments.filter(function(s){return s.highway===h}).length; r.push(h+' ('+c+' tratti)'); }); return JSON.stringify(r); })()"
         ) { result ->
             try {
                 val json = result.trim('"').replace("\\\"", "\"")
@@ -658,41 +654,6 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("OK", null)
             .show()
         updateDrawerStats()
-    }
-
-    // ============ FAB animation for web sheet ============
-
-    private fun animateFab(sheetOpen: Boolean) {
-        if (sheetOpen) {
-            val targetY = dpToPx(48f)
-            val layoutY = fab.top.toFloat()
-            if (layoutY > targetY) {
-                fab.animate()
-                    .translationY(-(layoutY - targetY))
-                    .setDuration(300)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator())
-                    .start()
-            }
-        } else {
-            fab.animate()
-                .translationY(0f)
-                .setDuration(300)
-                .setInterpolator(android.view.animation.DecelerateInterpolator())
-                .start()
-        }
-    }
-
-    private fun dpToPx(dp: Float): Float {
-        return dp * resources.displayMetrics.density
-    }
-
-    inner class SheetBridge {
-        @android.webkit.JavascriptInterface
-        fun onSheetToggle(isOpen: Boolean) {
-            runOnUiThread {
-                animateFab(isOpen)
-            }
-        }
     }
 
     @Deprecated("Deprecated in Java")
