@@ -3511,7 +3511,7 @@ km fine: 39.4
 Lunghezza: 11.9 km</description>
                 <styleUrl>#588</styleUrl>
                 <LineString id="586">
-                    <coordinates>11.6261018,44.4168467,0.0 11.6145812,44.4237546,0.0 11.6001933,44.428055,0.0</coordinates>
+                    <coordinates>11.7280814,44.3857993,0.0 11.6675858,44.4092971,0.0 11.6311679,44.4148641,0.0 11.6144178,44.4239314,0.0 11.5998789,44.4282713,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="591">
@@ -3526,7 +3526,7 @@ km fine: 51.3
 Lunghezza: 4.0 km</description>
                 <styleUrl>#592</styleUrl>
                 <LineString id="590">
-                    <coordinates>11.8398457,44.3459525,0.0 11.7905368,44.3619356,0.0 11.7390469,44.3818684,0.0</coordinates>
+                    <coordinates>11.8398457,44.3459525,0.0 11.7914101,44.3615889,0.0 11.7390469,44.3818684,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="595">
@@ -3616,7 +3616,7 @@ km fine: 49
 Lunghezza: 13.1 km</description>
                 <styleUrl>#616</styleUrl>
                 <LineString id="614">
-                    <coordinates>11.6001933,44.428055,0.0 11.6145812,44.4237546,0.0 11.6261018,44.4168467,0.0</coordinates>
+                    <coordinates>11.5998789,44.4282713,0.0 11.6144178,44.4239314,0.0 11.6311679,44.4148641,0.0 11.6675858,44.4092971,0.0 11.7280814,44.3857993,0.0</coordinates>
                 </LineString>
             </Placemark>
             <Placemark id="619">
