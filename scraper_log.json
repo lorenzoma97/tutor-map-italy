@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-10T07:31:38.077014",
+  "timestamp": "2026-04-13T08:07:23.155123",
   "hardcoded_count": 202,
   "alerts": [
     {
@@ -17,7 +17,7 @@
   "autostrade_date": null,
   "sicurauto_count": 200,
   "tutor30_count": 0,
-  "sicurauto_date": "2026-04-10",
+  "sicurauto_date": "2026-04-13",
   "polizia_pdf_count": 15,
   "polizia_pdf_date": "marzo-2025"
 }
