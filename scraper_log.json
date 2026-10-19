@@ -1,15 +1,10 @@
 {
-  "timestamp": "2026-10-16T10:48:54.654966",
+  "timestamp": "2026-10-19T12:15:32.763456",
   "hardcoded_count": 202,
   "alerts": [
     {
       "level": "warning",
       "source": "Autostrade.it",
-      "message": "0 tratti estratti - sito irraggiungibile o struttura HTML cambiata"
-    },
-    {
-      "level": "warning",
-      "source": "Sicurauto.it",
       "message": "0 tratti estratti - sito irraggiungibile o struttura HTML cambiata"
     },
     {
@@ -20,9 +15,9 @@
   ],
   "autostrade_count": 0,
   "autostrade_date": null,
-  "sicurauto_count": 0,
+  "sicurauto_count": 202,
   "tutor30_count": 0,
-  "sicurauto_date": null,
+  "sicurauto_date": "2026-10-19",
   "polizia_pdf_count": 15,
   "polizia_pdf_date": null
 }

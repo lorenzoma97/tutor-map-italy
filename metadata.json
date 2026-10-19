@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-10-16",
+  "last_update": "2026-10-19",
   "segment_count": 202,
   "sources": {
     "primary": {
@@ -10,7 +10,7 @@
     "secondary": {
       "name": "Sicurauto.it",
       "url": "https://www.sicurauto.it/news/traffico-e-viabilita/tutor-autostrade-mappa-dispositivi-attivi/",
-      "date": null
+      "date": "2026-10-19"
     },
     "cross_check": {
       "name": "Polizia di Stato (PDF)",
@@ -828,5 +828,5 @@
     }
   },
   "has_alerts": true,
-  "alert_count": 3
+  "alert_count": 2
 }
